@@ -1,0 +1,19 @@
+{
+  "name": "prestashop/hsngenius",
+  "description": "A new payment gateway from Network International",
+  "homepage": "",
+  "license": "AFL - Academic Free License (AFL 3.0)",
+  "authors": [
+    {
+      "name": "Abzer",
+      "email": "info@abzer.com"
+    }
+  ],
+  "require": {
+    "php": ">=5.3.2"
+  },
+  "config": {
+    "preferred-install": "dist"
+  },
+  "type": "prestashop-module"
+}
