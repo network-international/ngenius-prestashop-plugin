@@ -207,7 +207,7 @@ class Hsngenius extends PaymentModule
                 } elseif ($params['newOrderStatus']->id == Configuration::get('NGENIUS_FULLY_REFUNDED') && Validate::isLoadedObject($order)) {
                     if ($this->context->cookie->hsngenius_fully_refunded) {
                         $this->context->cookie->__unset('hsngenius_fully_refunded');
-                        $command->reinjectQuantity($params['id_order']);
+                        //$command->reinjectQuantity($params['id_order']);
                         $this->addNgeniusFlashMessage('You have successfully refund the transaction!');
                         return true;
                     }
