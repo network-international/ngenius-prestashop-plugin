@@ -1,34 +1,10 @@
 <?php
-/**
- * 2007-2022 PrestaShop
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Academic Free License (AFL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/afl-3.0.php
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to license@prestashop.com so we can send you a copy immediately.
- *
- * DISCLAIMER
- *
- * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
- * versions in the future. If you wish to customize PrestaShop for your
- * needs please refer to http://www.prestashop.com for more information.
- *
- *  @author    PrestaShop SA <contact@prestashop.com>
- *  @copyright 2007-2022 PrestaShop SA
- *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
- *  International Registered Trademark & Property of PrestaShop SA
- */
 
 if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-ini_set("display_errors",1);
+/** @noinspection PhpUndefinedConstantInspection */
 require_once _PS_MODULE_DIR_.'/ngenius/vendor/autoload.php';
 
 use NGenius\Command;
@@ -39,14 +15,12 @@ use PrestaShop\PrestaShop\Core\Payment\PaymentOption;
 
 class Ngenius extends PaymentModule
 {
-    protected $config_form = false;
-
     public function __construct()
     {
         $config = new Config();
         $this->name = 'ngenius';
         $this->tab = 'payments_gateways';
-        $this->version = '5.0.3';
+        $this->version = '1.0.2';
         $this->author = 'Network International';
         $this->need_instance = 1;
 
@@ -60,8 +34,9 @@ class Ngenius extends PaymentModule
         $this->displayName = $this->l($config->getModuleDisplayName());
         $this->description = $this->l($config->getModuleDescription());
 
-        $this->confirmUninstall = $this->l('Are you sure you want to uninstall my module?');
+        $this->confirmUninstall = $this->l('Are you sure you want to uninstall the module?');
 
+        /** @noinspection PhpUndefinedConstantInspection */
         $this->ps_versions_compliancy = array('min' => '1.7', 'max' => _PS_VERSION_);
     }
 
@@ -69,21 +44,21 @@ class Ngenius extends PaymentModule
      * Don't forget to create update methods if needed:
      * http://doc.prestashop.com/display/PS16/Enabling+the+Auto-Update
      */
-    public function install()
+    public function install(): bool
     {
         $config = new Config();
-        if (extension_loaded('curl') == false) {
+        if (!extension_loaded('curl')) {
             $this->_errors[] = $this->l('You have to enable the cURL extension on your server to install this module');
             return false;
         }
 
-        include(dirname(__FILE__).'/sql/install.php');
+        include_once(dirname(__FILE__).'/sql/install.php');
 
         Configuration::updateValue('DISPLAY_NAME', $config->getModuleDisplayName());
 
         return parent::install() &&
-            $this->registerHook('header') &&
-            $this->registerHook('backOfficeHeader') &&
+            $this->registerHook('displayHeader') &&
+            $this->registerHook('displayBackOfficeHeader') &&
             $this->registerHook('paymentOptions') &&
             $this->registerHook('actionOrderStatusUpdate') &&
             $this->registerHook('displayBackOfficeOrderActions') &&
@@ -95,7 +70,7 @@ class Ngenius extends PaymentModule
 
     public function uninstall()
     {
-        include(dirname(__FILE__).'/sql/uninstall.php');
+        include_once(dirname(__FILE__).'/sql/uninstall.php');
 
         $this->deleteTab();
         $this->deleteNGeniusConfigurations();
@@ -116,7 +91,7 @@ class Ngenius extends PaymentModule
             if ($orderConfirmationData) {
                 return true;
             } else {
-                $data = isset($params['templateVars']) ? $params['templateVars'] : '';
+                $data = $params['templateVars'] ?? '';
                 $mailData = array(
                     'id_order' => (int) $orderId,
                     'data' => serialize($data),
@@ -131,7 +106,7 @@ class Ngenius extends PaymentModule
     /**
      * Load the configuration form
      *
-     * @return string|void
+     * @return string
      */
     public function getContent()
     {
@@ -144,6 +119,7 @@ class Ngenius extends PaymentModule
             $LIVE_API_URL = strval(Tools::getValue('LIVE_API_URL'));
             $OUTLET_REFERENCE_ID = strval(Tools::getValue('OUTLET_REFERENCE_ID'));
             $API_KEY = strval(Tools::getValue('API_KEY'));
+            $HTTP_VERSION = strval(Tools::getValue('HTTP_VERSION'));
             $DEBUG = strval(Tools::getValue('DEBUG'));
             $NING_CRON_SCHEDULE = strval(Tools::getValue('NING_CRON_SCHEDULE'));
             $CURRENCY_OUTLETID =    json_encode(Tools::getValue('CURRENCY_OUTLETID'));
@@ -162,6 +138,7 @@ class Ngenius extends PaymentModule
                 Configuration::updateValue('LIVE_API_URL', $LIVE_API_URL);
                 Configuration::updateValue('OUTLET_REFERENCE_ID', $OUTLET_REFERENCE_ID);
                 Configuration::updateValue('API_KEY', $API_KEY);
+                Configuration::updateValue('HTTP_VERSION', $HTTP_VERSION);
                 Configuration::updateValue('DEBUG', $DEBUG);
                 Configuration::updateValue('NING_CRON_SCHEDULE', $NING_CRON_SCHEDULE);
                 Configuration::updateValue('CURRENCY_OUTLETID', $CURRENCY_OUTLETID);
@@ -172,7 +149,7 @@ class Ngenius extends PaymentModule
         return $output . $this->displayForm();
     }
 
-    public function validateCurrencyOutletid($encCurOut)
+    public function validateCurrencyOutletid($encCurOut): bool
     {
         $flag = true;
         $decCurOut = json_decode($encCurOut, true);
@@ -188,8 +165,9 @@ class Ngenius extends PaymentModule
      * Create the form that will be displayed in the configuration of your module.
      *
      * @return string
+     * @throws Exception
      */
-    public function displayForm()
+    public function displayForm(): string
     {
         // Get default language
         $defaultLang = (int) Configuration::get('PS_LANG_DEFAULT');
@@ -231,6 +209,7 @@ class Ngenius extends PaymentModule
         $helper->fields_value['API_KEY'] = Configuration::get('API_KEY');
         $helper->fields_value['UAT_API_URL'] = Configuration::get('UAT_API_URL');
         $helper->fields_value['LIVE_API_URL'] = Configuration::get('LIVE_API_URL');
+        $helper->fields_value['HTTP_VERSION'] = Configuration::get('HTTP_VERSION');
         $helper->fields_value['DEBUG'] = Configuration::get('DEBUG');
         $helper->fields_value['NING_CRON_SCHEDULE'] = Configuration::get('NING_CRON_SCHEDULE');
         $helper->fields_value['CURRENCY_OUTLETID'] = Configuration::get('CURRENCY_OUTLETID');
@@ -242,6 +221,7 @@ class Ngenius extends PaymentModule
 
         $token = \Configuration::get('NING_CRON_TOKEN');
 
+        /** @noinspection PhpUndefinedConstantInspection */
         $this->context->smarty->assign([
             'config'      => $helper->fields_value,
             'token'       => Tools::getAdminTokenLite('AdminModules'),
@@ -255,7 +235,7 @@ class Ngenius extends PaymentModule
     /**
      * Add the CSS & JavaScript files you want to be loaded in the BO.
      */
-    public function hookBackOfficeHeader()
+    public function hookDisplayBackOfficeHeader(): void
     {
         if (Tools::getValue('module_name') == $this->name) {
             $this->context->controller->addJS($this->_path.'views/js/back.js');
@@ -266,7 +246,7 @@ class Ngenius extends PaymentModule
     /**
      * Add the CSS & JavaScript files you want to be added on the FO.
      */
-    public function hookHeader()
+    public function hookDisplayHeader(): void
     {
         $this->context->controller->addJS($this->_path.'/views/js/front.js');
         $this->context->controller->addCSS($this->_path.'/views/css/front.css');
@@ -275,18 +255,18 @@ class Ngenius extends PaymentModule
     /**
      * Return payment options available for PS 1.7+
      *
-     * @param array Hook parameters
+     * @param array $params Hook parameters
      *
      * @return array|null
      */
-    public function hookPaymentOptions($params)
+    public function hookPaymentOptions($params): ?array
     {
         $config = new Config();
         if (!$this->active) {
-            return;
+            return null;
         }
         if (!$this->checkCurrency($params['cart'])) {
-            return;
+            return null;
         }
         $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $option->setCallToActionText($this->l($config->getDisplayName()))
@@ -297,7 +277,7 @@ class Ngenius extends PaymentModule
         ];
     }
 
-    public function checkCurrency($cart)
+    public function checkCurrency($cart): bool
     {
         $currency_order = new Currency($cart->id_currency);
         $currencies_module = $this->getCurrency($cart->id_currency);
@@ -316,7 +296,7 @@ class Ngenius extends PaymentModule
      *
      * @return string
      */
-    public function getOrderConfUrl($order)
+    public function getOrderConfUrl($order): string
     {
         return $this->context->link->getPageLink(
             'order-confirmation',
@@ -336,8 +316,9 @@ class Ngenius extends PaymentModule
      *
      * @param array $params
      * @return bool|void;
+     * @throws Exception
      */
-    public function hookActionOrderStatusUpdate($params)
+    public function hookActionOrderStatusUpdate(array $params)
     {
         if (!$this->active) {
             return false;
@@ -353,25 +334,34 @@ class Ngenius extends PaymentModule
         $config = new Config();
         $status = $config->getOrderStatus();
         if ($this->validateNgeniusOrderSatus($params)) {
-            if (!empty($params['id_order']) &&  !empty($params['newOrderStatus']) && Validate::isLoadedObject($params['newOrderStatus'])) {
+            if (!empty($params['id_order'])
+                &&  !empty($params['newOrderStatus'])
+                && Validate::isLoadedObject($params['newOrderStatus'])
+            ) {
                 $statusFlag = false;
-                if ($params['newOrderStatus']->id == \Configuration::get($status.'_FULLY_CAPTURED') && Validate::isLoadedObject($order)) {
+                if (
+                    $params['newOrderStatus']->id == \Configuration::get($status.'_FULLY_CAPTURED')
+                    && Validate::isLoadedObject($order)
+                ) {
                     if ($_SESSION['ngenius_fully_captured'] == 'true') {
                         $_SESSION['ngenius_fully_captured'] = null;
-                        $this->addNgeniusFlashMessage($this->trans('You have successfully Captured!'));
                         $statusFlag = true;
                     } else {
                         $this->invalidOrderStatus($order->id);
                     }
-                } elseif ($params['newOrderStatus']->id == \Configuration::get($status.'_AUTH_REVERSED') && Validate::isLoadedObject($order)) {
+                } elseif (
+                    $params['newOrderStatus']->id == \Configuration::get($status.'_AUTH_REVERSED')
+                    && Validate::isLoadedObject($order)
+                ) {
                     if ($_SESSION['ngenius_auth_reversed'] == 'true') {
                         $_SESSION['ngenius_auth_reversed'] = null;
-                        $this->addNgeniusFlashMessage($this->trans('You have successfully reversed the authorization!'));
                         $statusFlag = true;
                     } else {
                         $this->invalidOrderStatus($order->id);
                     }
-                } elseif ($params['newOrderStatus']->id == \Configuration::get($status.'_FULLY_REFUNDED') && Validate::isLoadedObject($order)) {
+                } elseif ($params['newOrderStatus']->id == \Configuration::get($status.'_FULLY_REFUNDED')
+                    && Validate::isLoadedObject($order)
+                ) {
                     if ($_SESSION['ngenius_fully_refund'] == 'true') {
                         $_SESSION['ngenius_fully_refund'] = null;
                         $this->reinjectQuantity($params['id_order']);
@@ -380,7 +370,10 @@ class Ngenius extends PaymentModule
                     } else {
                         $this->invalidOrderStatus($order->id);
                     }
-                } elseif ($params['newOrderStatus']->id == \Configuration::get($status.'_PARTIALLY_REFUNDED') && Validate::isLoadedObject($order)) {
+                } elseif (
+                    $params['newOrderStatus']->id == \Configuration::get($status.'_PARTIALLY_REFUNDED')
+                    && Validate::isLoadedObject($order)
+                ) {
                     if ($_SESSION['ngenius_partial_refund'] == 'true') {
                         $_SESSION['ngenius_partial_refund'] = null;
                         $this->addNgeniusFlashMessage('You have partially refund the transaction!');
@@ -395,42 +388,46 @@ class Ngenius extends PaymentModule
             }
         } else {
             $this->addNgeniusFlashMessage($this->trans('Error!. Invalid Order Status.'));
-            Tools::redirectAdmin($this->context->link->getAdminLink('AdminOrders') . '&id_order=' . $order->id . '&vieworder');
+            Tools::redirectAdmin(
+                $this->context->link->getAdminLink('AdminOrders')
+                . '&id_order=' . $order->id . '&vieworder'
+            );
         }
     }
 
     /**
      * Ngenius Flash Message.
      *
-     * @return true
+     * @param $message
+     * @param bool $isError
+     * @return void
      */
-    public function addNgeniusFlashMessage($message)
+    public function addNgeniusFlashMessage($message, bool $isError = false): void
     {
-        if (session_status() == PHP_SESSION_ACTIVE) {
-            $_SESSION['ngenius_flashes'] = $message;
-        } elseif (session_status() == PHP_SESSION_NONE) {
-            session_start();
-            $_SESSION['ngenius_flashes'] = $message;
-        } else {
-            setcookie('ngenius_flashes', $message);
-        }
-        return true;
+        $router = $this->get('router');
+        $type = $isError ? "error" : "success";
+
+        $this->get('session')->getFlashBag()->add($type, $message);
     }
 
 
     /**
-     * Validate Ngenius Order Satus.
+     * Validate Ngenius Order Status.
      *
      * @param array $params
      * @return bool;
      */
 
-    public function validateNgeniusOrderSatus($params)
+    public function validateNgeniusOrderSatus(array $params): bool
     {
         $config = new Config();
         $status = $config->getOrderStatus();
         $order = new \Order((int)$params['id_order']);
-        if (!empty($order->module) && $order->module == $this->name && !empty($params['newOrderStatus']) &&  Validate::isLoadedObject($params['newOrderStatus'])) {
+        if (!empty($order->module)
+            && $order->module == $this->name
+            && !empty($params['newOrderStatus'])
+            &&  Validate::isLoadedObject($params['newOrderStatus'])
+        ) {
             if ($params['newOrderStatus']->id == \Configuration::get($status.'_PENDING')
                 || $params['newOrderStatus']->id == \Configuration::get($status.'_PROCESSING')
                 || $params['newOrderStatus']->id == \Configuration::get($status.'_FAILED')
@@ -451,13 +448,15 @@ class Ngenius extends PaymentModule
     /**
      * invalid Order Status
      *
-     * @param id $orderId
+     * @param $orderId
      *
      */
-    public function invalidOrderStatus($orderId)
+    public function invalidOrderStatus($orderId): void
     {
         $this->addNgeniusFlashMessage($this->trans('Error!. Invalid Order Status!.'));
-        Tools::redirectAdmin($this->context->link->getAdminLink('AdminOrders') . '&id_order=' . $orderId . '&vieworder');
+        Tools::redirectAdmin(
+            $this->context->link->getAdminLink('AdminOrders') . '&id_order=' . $orderId . '&vieworder'
+        );
     }
 
     /**
@@ -466,7 +465,7 @@ class Ngenius extends PaymentModule
      * @param array $params
      * @return string|void;
      */
-    public function hookDisplayBackOfficeOrderActions($params)
+    public function hookDisplayBackOfficeOrderActions(array $params)
     {
 
         if (!$this->active) {
@@ -499,8 +498,9 @@ class Ngenius extends PaymentModule
      *
      * @param array $params
      * @return string|void;
+     * @throws Exception
      */
-    public function hookDisplayAdminOrder($params)
+    public function hookDisplayAdminOrder(array $params)
     {
         if (! $this->active) {
             return false;
@@ -508,36 +508,47 @@ class Ngenius extends PaymentModule
 
         $id_order = (int)$params['id_order'];
         $config = new Config();
-        $order = new Order($id_order);
+        $order = new \Order($id_order);
         if ($order->module == $this->name) {
 
             $command = new Command();
             $ngeniusOrder = $command->getNgeniusOrder($id_order);
-            $formAction = $this->context->link->getAdminLink('AdminOrders', true, [], ['id_order' => $params['id_order'], 'vieworder' => 1]);
+            $formAction = $this->context->link->getAdminLink(
+                'AdminOrders',
+                true,
+                [],
+                ['id_order' => $params['id_order'], 'vieworder' => 1]
+            );
 
             // void / capture
             $authorizedOrder = $command->getAuthorizationTransaction($ngeniusOrder);
 
             if ($authorizedOrder) {
+
                 if (Tools::isSubmit('fullyCaptureNgenius')) {
                     // fully capture
+                    $captureAttempt = $command->capture($authorizedOrder);
 
-                    if ($command->capture($authorizedOrder)) {
+                    if ($captureAttempt) {
+                        $command->addCustomerMessage(json_decode($captureAttempt, true), $order);
                         $this->addNgeniusFlashMessage('You have Successfully Captured!');
-                        Tools::redirectAdmin($formAction);
+                        $order->setCurrentState((int)\Configuration::get($config->getOrderStatus().'_FULLY_CAPTURED'));
                     } else {
                         $this->addNgeniusFlashMessage('You are unsuccessful with the capture.');
-                        Tools::redirectAdmin($formAction);
                     }
+                    Tools::redirectAdmin($formAction);
                 } elseif (Tools::isSubmit('voidNgenius')) {
                     // void / auth reverse
-                    if ($command->void($authorizedOrder)) {
+                    $voidAttempt = $command->void($authorizedOrder);
+
+                    if ($voidAttempt) {
+                        $command->addCustomerMessage(json_decode($voidAttempt, true), $order);
                         $this->addNgeniusFlashMessage('You have successfully reversed the authorization!');
-                        Tools::redirectAdmin($formAction);
+                        $order->setCurrentState((int)\Configuration::get($config->getOrderStatus().'_AUTH_REVERSED'));
                     } else {
                         $this->addNgeniusFlashMessage('You are unsuccessful with reversing this authorization.');
-                        Tools::redirectAdmin($formAction);
                     }
+                    Tools::redirectAdmin($formAction);
                 }
             }
 
@@ -545,23 +556,31 @@ class Ngenius extends PaymentModule
 
             $totalRefunded = '';
 
-            if (Tools::isSubmit('partialRefundNgenius')) {
+            $refundedOrder = [];
 
+            if (Tools::isSubmit('partialRefundNgenius')) {
 
                 if (Tools::getValue('refundAmount') != '' ||  Tools::getValue('refundAmount') != null) {
                     $refundedOrder['amount'] = (float)Tools::getValue('refundAmount');
-                    if ($command->validateMcpOrder($params['id_order']) && $refundedOrder['amount'] != $ngeniusOrder['amount']) {
-                        $this->addNgeniusFlashMessage('MCP enabled order does not support partial refund. Please enter full amount to refund!.');
-                        Tools::redirectAdmin($formAction);
-                    } else {
-                        $ngeniusOrder['amount'] = $refundedOrder['amount'];
-                        if ($command->refund($ngeniusOrder)) {
-                            Tools::redirectAdmin($formAction);
+                    $ngeniusOrder['amount'] = $refundedOrder['amount'];
+
+                    $refundAttempt = $command->refund($ngeniusOrder);
+
+                    if ($refundAttempt) {
+                        $command->addCustomerMessage(json_decode($refundAttempt, true), $order);
+
+                        if (isset($_SESSION['ngenius_fully_refund']) && $_SESSION['ngenius_fully_refund'] === 'true') {
+                            $orderStatus = $config->getOrderStatus().'_FULLY_REFUNDED';
                         } else {
-                            $this->addNgeniusFlashMessage('error in proceed with your refund.!.');
-                            Tools::redirectAdmin($formAction);
+                            $orderStatus = $config->getOrderStatus().'_PARTIALLY_REFUNDED';
                         }
+
+                        $order->setCurrentState((int)\Configuration::get($orderStatus));
+                    } else {
+                        $this->addNgeniusFlashMessage('This order is non-refundable right now.', true);
                     }
+
+                    Tools::redirectAdmin($formAction);
                 }
             } else {
                 $totalRefunded = $ngeniusOrder['capture_amt'];
@@ -586,8 +605,9 @@ class Ngenius extends PaymentModule
      * Add new back office tab.
      *
      * @return bool;
+     * @throws Exception
      */
-    public function addTab()
+    public function addTab(): bool
     {
         $config = new Config();
         if (!\Tab::getIdFromClassName('AdminNgeniusReports')) {
@@ -611,18 +631,19 @@ class Ngenius extends PaymentModule
      * Add NGenius Cron Token.
      *
      * @return bool;
+     * @throws Exception
      */
-    public function addNGeniusCronToken()
+    public function addNGeniusCronToken(): bool
     {
         \Configuration::updateValue('NING_CRON_TOKEN', bin2hex(random_bytes(16)));
         return true;
     }
 
-    public function createOrderState()
+    public function createOrderState(): bool
     {
         foreach ($this->getNgeniusOrderStatus() as $state) {
             $orderStateExist = false;
-            $status_name = $state['status']; //'PS_OS_NGENIUS';
+            $status_name = $state['status'];
             $orderStateId = \Configuration::get($status_name);
             $description = $state['label'];
             // save data to sorder_state_lang table
@@ -637,6 +658,7 @@ class Ngenius extends PaymentModule
                     'LEFT JOIN `%1$sorder_state` os '.
                     'ON osl.`id_order_state`=os.`id_order_state` '.
                     'WHERE osl.`name`="%2$s" AND os.`deleted`=0';
+                /** @noinspection PhpUndefinedConstantInspection */
                 $orderStateId =  \Db::getInstance()->getValue(sprintf($query, _DB_PREFIX_, $description));
                 if ($orderStateId) {
                     \Configuration::updateValue($status_name, $orderStateId);
@@ -672,6 +694,7 @@ class Ngenius extends PaymentModule
                 }
             }
             $file = $this->getLocalPath().'views/img/order_state.gif';
+            /** @noinspection PhpUndefinedConstantInspection */
             $newfile = _PS_IMG_DIR_.'os/' . $orderState->id . '.gif';
             copy($file, $newfile);
         }
@@ -683,7 +706,7 @@ class Ngenius extends PaymentModule
      *
      * @return bool;
      */
-    public function deleteTab()
+    public function deleteTab(): bool
     {
         if ($idTab = \Tab::getIdFromClassName('AdminNgeniusReports')) {
             if ($idTab != 0) {
@@ -701,7 +724,7 @@ class Ngenius extends PaymentModule
      *
      * @return bool;
      */
-    public function deleteNGeniusConfigurations()
+    public function deleteNGeniusConfigurations(): bool
     {
         \Configuration::updateValue('API_KEY', null);
         \Configuration::updateValue('UAT_API_URL', null);
@@ -718,8 +741,9 @@ class Ngenius extends PaymentModule
      * Ngenius Order Status.
      *
      * @return array
+     * @throws Exception
      */
-    public function getNgeniusOrderStatus()
+    public function getNgeniusOrderStatus(): array
     {
         $config = new Config();
         $status = $config->getOrderStatus();
@@ -854,7 +878,7 @@ class Ngenius extends PaymentModule
      * @param int $orderId
      * @return void
      */
-    public function reinjectQuantity($orderId)
+    public function reinjectQuantity(int $orderId): void
     {
         $command = new Command();
         $orderItems = \OrderDetail::getList((int)$orderId);
@@ -867,21 +891,35 @@ class Ngenius extends PaymentModule
 
 
     /**
-     * @param OrderDetail $order_detail
      * @param int $qty_cancel_product
      * @param bool $delete
      */
-    public function reinjectQuantityCore($order_detail, $qty_cancel_product, $delete = false)
+    public function reinjectQuantityCore($order_detail, int $qty_cancel_product, $delete = false): void
     {
         // Reinject product
-        $reinjectable_quantity = (int) $order_detail->product_quantity - (int) $order_detail->product_quantity_reinjected;
-        $quantity_to_reinject = $qty_cancel_product > $reinjectable_quantity ? $reinjectable_quantity : $qty_cancel_product;
+        $reinjectable_quantity = (int) $order_detail->product_quantity
+            - (int) $order_detail->product_quantity_reinjected;
+        $quantity_to_reinject = $qty_cancel_product > $reinjectable_quantity
+            ? $reinjectable_quantity : $qty_cancel_product;
         /** @since 1.5.0 : Advanced Stock Management */
-        $product_to_inject = new \Product($order_detail->product_id, false, (int) $this->context->language->id, (int) $order_detail->id_shop);
+        $product_to_inject = new \Product(
+            $order_detail->product_id,
+            false,
+            (int) $this->context->language->id,
+            (int) $order_detail->id_shop
+        );
 
-        $product = new \Product($order_detail->product_id, false, (int) $this->context->language->id, (int) $order_detail->id_shop);
+        $product = new \Product(
+            $order_detail->product_id,
+            false,
+            (int) $this->context->language->id,
+            (int) $order_detail->id_shop
+        );
 
-        if (\Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT') && $product->advanced_stock_management && $order_detail->id_warehouse != 0) {
+        if (\Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT') &&
+            $product->advanced_stock_management &&
+            $order_detail->id_warehouse != 0
+        ) {
 
             $manager = \StockManagerFactory::getManager();
             $movements = \StockMvt::getNegativeStockMvts(
@@ -904,7 +942,10 @@ class Ngenius extends PaymentModule
                         || ($product->pack_stock_type == \Pack::STOCK_TYPE_DEFAULT
                             && \Configuration::get('PS_PACK_STOCK_TYPE') > 0)
                     ) {
-                        $products_pack = \Pack::getItems((int) $product->id, (int) \Configuration::get('PS_LANG_DEFAULT'));
+                        $products_pack = \Pack::getItems(
+                            (int) $product->id,
+                            (int) \Configuration::get('PS_LANG_DEFAULT')
+                        );
                         // Foreach item
                         foreach ($products_pack as $product_pack) {
                             if ($product_pack->advanced_stock_management == 1) {
@@ -970,7 +1011,11 @@ class Ngenius extends PaymentModule
                 )
             );
         } else {
-            $this->errors[] = $this->trans('This product cannot be re-stocked.', array(), 'Admin.Orderscustomers.Notification');
+            $this->errors[] = $this->trans(
+                'This product cannot be re-stocked.',
+                array(),
+                'Admin.Orderscustomers.Notification'
+            );
         }
     }
 }

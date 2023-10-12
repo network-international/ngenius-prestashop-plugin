@@ -3,8 +3,7 @@
     "description": "Hosted Payment Page with simple, secure and PCI DSS compliant.",
     "authors": [
         {
-            "name": "Network International",
-            "email": "https://www.network.ae/en"
+            "name": "Network International"
         }
     ],
     "autoload": {
@@ -15,5 +14,8 @@
         "prepend-autoloader": false
       },
       "type": "prestashop-module"
+    },
+    "require": {
+        "ngenius/ngenius-common": "dev-main"
     }
 }

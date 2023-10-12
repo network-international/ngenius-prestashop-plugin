@@ -1,31 +1,8 @@
 <?php
-/**
-* 2007-2022 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2022 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
 
 namespace NGenius\Http;
 
+use Exception;
 use NGenius\Command;
 use NGenius\Config\Config;
 use NGenius\Http\AbstractTransaction;
@@ -33,37 +10,29 @@ use NGenius\Http\AbstractTransaction;
 class TransactionCapture extends AbstractTransaction
 {
     /**
-     * Processing of API request body
-     *
-     * @param array $data
-     * @return string
-     */
-    protected function preProcess(array $data)
-    {
-        return json_encode($data);
-    }
-   
-    /**
      * Processing of API response
      *
-     * @param array $responseEnc
-     * @return array|bool
+     * @param $responseString
+     * @return array
+     * @throws Exception
      */
-    protected function postProcess($responseEnc)
+    public function postProcess($responseString): ?array
     {
-        $response = json_decode($responseEnc, true);
-        
+        $response = json_decode($responseString, true);
+
         if (isset($response['errors']) && is_array($response['errors'])) {
-            return false;
+            return null;
         } else {
             $lastTransaction = '';
-            if (isset($response['_embedded']['cnp:capture']) && is_array($response['_embedded']['cnp:capture'])) {
-                $lastTransaction = end($response['_embedded']['cnp:capture']);
+            if (isset($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
+                && is_array($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
+            ) {
+                $lastTransaction = end($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL]);
             }
             if (isset($lastTransaction['state']) && $lastTransaction['state'] == 'SUCCESS') {
                 return $this->captureProcess($response, $lastTransaction);
             } else {
-                return false;
+                return null;
             }
         }
     }
@@ -74,6 +43,7 @@ class TransactionCapture extends AbstractTransaction
      * @param array $response
      * @param array $lastTransaction
      * @return array|bool
+     * @throws Exception
      */
     protected function captureProcess($response, $lastTransaction)
     {
@@ -81,8 +51,8 @@ class TransactionCapture extends AbstractTransaction
         $command = new Command();
         $capturedAmt = $this->captureAmount($lastTransaction);
         $transactionId = $this->transactionId($lastTransaction);
-        $state = isset($response['state']) ? $response['state'] : '';
-        $orderReference = isset($response['orderReference']) ? $response['orderReference'] : '';
+        $state = $response['state'] ?? '';
+        $orderReference = $response['orderReference'] ?? '';
         $orderStatus = $config->getOrderStatus().'_FULLY_CAPTURED';
 
         $ngeniusOrder = [
@@ -93,10 +63,9 @@ class TransactionCapture extends AbstractTransaction
             'id_capture' => $transactionId,
         ];
         $command->updateNngeniusNetworkinternational($ngeniusOrder);
-        $order = new \Order($response['merchantOrderReference']);
-        $command->addCustomerMessage(json_decode(json_encode($response), true), $order);
+
         $_SESSION['ngenius_fully_captured'] = 'true';
-        $order->setCurrentState((int)\Configuration::get($orderStatus));
+
         return [
             'result' => [
                 'captured_amt' => $capturedAmt,
@@ -111,12 +80,14 @@ class TransactionCapture extends AbstractTransaction
      * get capture Amount
      *
      * @param array $lastTransaction
-     * @return string
+     * @return int|string
      */
-    protected function captureAmount($lastTransaction)
+    protected function captureAmount(array $lastTransaction): int|string
     {
         $capturedAmt = 0;
-        if (isset($lastTransaction['state']) && ($lastTransaction['state'] == 'SUCCESS') && isset($lastTransaction['amount']['value'])) {
+        if (isset($lastTransaction['state'])
+            && ($lastTransaction['state'] == 'SUCCESS')
+            && isset($lastTransaction['amount']['value'])) {
             $capturedAmt = $lastTransaction['amount']['value'];
         }
         return $capturedAmt;
@@ -126,9 +97,9 @@ class TransactionCapture extends AbstractTransaction
      * get transaction Id
      *
      * @param array $lastTransaction
-     * @return string
+     * @return string|int
      */
-    protected function transactionId($lastTransaction)
+    protected function transactionId(array $lastTransaction): string|int
     {
         $transactionId = '';
         if (isset($lastTransaction['_links']['self']['href'])) {

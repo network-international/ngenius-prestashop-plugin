@@ -1,28 +1,4 @@
 <?php
-/**
-* 2007-2022 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2022 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
 
 namespace NGenius;
 
@@ -30,7 +6,8 @@ use NGenius\Config\Config;
 
 class Model
 {
-    
+    const ID_ORDER_LITERAL = 'id_order ="';
+
     /**
      * Place Ngenius Order
      *
@@ -51,8 +28,15 @@ class Model
             'outlet_id' => pSQL($data['outlet_id']),
             'id_payment' => null,
             'capture_amt' => null,
+            'refunded_amt' => null,
         );
-        return (\Db::getInstance()->insert("ning_online_payment", $insertData)) ? (bool) true : (bool) false;
+
+        if (self::getNgeniusOrderByCartId($insertData['id_cart'])) {
+            return self::updateNgeniusOrderByCartId($data);
+        }
+
+        return (\Db::getInstance()->insert("ning_online_payment", $insertData))
+            ? (bool) true : (bool) false;
     }
 
     /**
@@ -66,8 +50,55 @@ class Model
         $sql = new \DbQuery();
         $sql->select('*')
             ->from("ning_online_payment")
-            ->where('id_order ="'.pSQL($orderId).'"');
+            ->where(self::ID_ORDER_LITERAL.pSQL($orderId).'"');
         return \Db::getInstance()->getRow($sql);
+    }
+
+    /**
+     * Gets Ngenius Order
+     *
+     * @param $cartId
+     * @return array|bool
+     */
+    public static function getNgeniusOrderByCartId($cartId): array|bool
+    {
+        $sql = new \DbQuery();
+        $sql->select('*')
+            ->from("ning_online_payment")
+            ->where('id_cart ="'.pSQL($cartId).'"');
+        return \Db::getInstance()->getRow($sql);
+    }
+
+    /**
+     * Updates Ngenius Order
+     *
+     * @param $cartId
+     * @return array|bool
+     */
+    public static function updateNgeniusOrderByCartId($data): bool
+    {
+        return \Db::getInstance()->update(
+            'ning_online_payment',
+            $data,
+            'id_cart = "'.pSQL($data['id_cart']).'"'
+        );
+    }
+
+    /**
+     * Deletes ngenius order by reference
+     *
+     * @param string $reference
+     * @return void
+     */
+    public static function deleteNgeniusOrder(int $cartId): void
+    {
+        $tableName = 'ning_online_payment';
+
+        $db = \Db::getInstance();
+
+        $sql = "DELETE FROM `" . _DB_PREFIX_ . "$tableName` WHERE `id_cart` = '" . pSQL($cartId) . "'";
+
+        $db->execute($sql);
     }
 
     /**
@@ -109,7 +140,7 @@ class Model
     public static function getCustomerThread($order)
     {
         $sql = new \DbQuery();
-        $sql->select('*')->from("customer_thread")->where('id_order ="'.(int) $order->id.'"');
+        $sql->select('*')->from("customer_thread")->where(self::ID_ORDER_LITERAL.(int) $order->id.'"');
         if ($thread = \Db::getInstance()->getRow($sql)) {
             return $thread;
         } else {
@@ -140,7 +171,7 @@ class Model
         $sql = new \DbQuery();
         $sql->select('*')
             ->from("ning_order_email_content")
-            ->where('id_order ="'.pSQL($idOrder).'"');
+            ->where(self::ID_ORDER_LITERAL.pSQL($idOrder).'"');
         return \Db::getInstance()->getRow($sql);
     }
 
@@ -235,7 +266,9 @@ class Model
      */
     public static function getAuthorizationTransaction($ngeniusOrder)
     {
-        if (!empty($ngeniusOrder['id_payment']) && !empty($ngeniusOrder['reference']) && $ngeniusOrder['state'] == 'AUTHORISED') {
+        if (!empty($ngeniusOrder['id_payment'])
+            && !empty($ngeniusOrder['reference'])
+            && $ngeniusOrder['state'] == 'AUTHORISED') {
             return $ngeniusOrder;
         } else {
             return false;
@@ -250,7 +283,10 @@ class Model
      */
     public static function getRefundedTransaction($ngeniusOrder)
     {
-        if (isset($ngeniusOrder['id_capture']) &&  !empty($ngeniusOrder['id_capture']) && $ngeniusOrder['capture_amt'] > 0 && $ngeniusOrder['state'] == 'CAPTURED') {
+        if (isset($ngeniusOrder['id_capture'])
+            &&  !empty($ngeniusOrder['id_capture'])
+            && $ngeniusOrder['capture_amt'] > 0
+            && $ngeniusOrder['state'] == 'CAPTURED') {
             return $ngeniusOrder;
         } else {
             return false;
@@ -263,9 +299,11 @@ class Model
      * @param array $ngeniusOrder
      * @return array|bool
      */
-    public static function getDeliveryTransaction($ngeniusOrder)
+    public static function getDeliveryTransaction(array $ngeniusOrder): bool|array
     {
-        if (isset($ngeniusOrder['id_payment']) &&  !empty($ngeniusOrder['id_capture']) && $ngeniusOrder['capture_amt'] > 0) {
+        if (isset($ngeniusOrder['id_payment'])
+            &&  !empty($ngeniusOrder['id_capture'])
+            && $ngeniusOrder['capture_amt'] > 0) {
             return $ngeniusOrder;
         } else {
             return false;
@@ -275,11 +313,10 @@ class Model
     /**
      * Gets Order Details Core
      *
-     * @param int $customerId
-     * @param int $savedCardId
-     * @return bool
+     * @param $idOrderDetail
+     * @return bool|array
      */
-    public function getOrderDetailsCore($idOrderDetail)
+    public function getOrderDetailsCore($idOrderDetail): bool|array
     {
         $sql = new \DbQuery();
         $sql->select('*')

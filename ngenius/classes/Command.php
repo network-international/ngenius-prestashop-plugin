@@ -1,34 +1,16 @@
 <?php
-/**
-* 2007-2022 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2022 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
 
 namespace NGenius;
 
-use NGenius\Model;
-use NGenius\Logger;
+use Exception;
 use NGenius\Config\Config;
+use NGenius\Http\TransactionAuth;
+use NGenius\Http\TransactionCapture;
+use NGenius\Http\TransactionOrderRequest;
+use NGenius\Http\TransactionPurchase;
+use NGenius\Http\TransactionRefund;
+use NGenius\Http\TransactionSale;
+use NGenius\Http\TransactionVoid;
 use NGenius\Request\VoidRequest;
 use NGenius\Request\SaleRequest;
 use NGenius\Request\PurchaseRequest;
@@ -37,39 +19,53 @@ use NGenius\Request\RefundRequest;
 use NGenius\Request\CaptureRequest;
 use NGenius\Request\OrderStatusRequest;
 use NGenius\Request\AuthorizationRequest;
-use NGenius\Http\TransferFactory;
-use NGenius\Http\TransactionAuth;
-use NGenius\Http\TransactionSale;
-use NGenius\Http\TransactionPurchase;
-use NGenius\Http\TransactionVoid;
-use NGenius\Http\TransactionRefund;
-use NGenius\Http\TransactionCapture;
-use NGenius\Http\TransactionOrderRequest;
 use NGenius\Validator\VoidValidator;
 use NGenius\Validator\RefundValidator;
 use NGenius\Validator\CaptureValidator;
 use NGenius\Validator\ResponseValidator;
+use Ngenius\NgeniusCommon\NgeniusHTTPCommon;
+use Ngenius\NgeniusCommon\NgeniusHTTPTransfer;
 
 class Command extends Model
 {
+
+    const NGENIUS_CAPTURE_LITERAL = 'cnp:capture';
+    const NGENIUS_REFUND_LITERAL = 'cnp:refund';
+    const AMOUNT_LITERAL = 'Amount : ';
+
+    private NgeniusHTTPTransfer $httpTransfer;
+    private Config $config;
+    private ResponseValidator $responseValidator;
+
+    public function __construct()
+    {
+        $this->config = new Config();
+        $this->responseValidator = new ResponseValidator();
+        $this->httpTransfer = new NgeniusHTTPTransfer();
+        $this->httpTransfer->setHttpVersion($this->config->getHTTPVersion());
+    }
+
     /**
      * Order Authorize.
      *
      * @param array $order
      * @param float $amount
-     * @return bool
+     * @return bool|string
+     * @throws Exception
      */
-    public function authorize($order, $amount)
+    public function authorize($order, float $amount): bool|string
     {
         $authorizationRequest = new AuthorizationRequest();
-        $transferFactory = new TransferFactory();
         $transactionAuth = new TransactionAuth();
-        $responseValidator = new ResponseValidator();
 
         $requestData = $authorizationRequest->build($order, $amount);
-        $transferObject = $transferFactory->create($requestData);
-        $response = $transactionAuth->placeRequest($transferObject);
-        return $responseValidator->validate($response);
+
+        if (is_array($requestData)) {
+            $this->buildHttpTransfer($requestData);
+            $response = NgeniusHTTPCommon::placeRequest($this->httpTransfer);
+            return $this->responseValidator->validate($transactionAuth->postProcess($response) ?? []);
+        }
+        return false;
     }
 
     /**
@@ -77,19 +73,22 @@ class Command extends Model
      *
      * @param array $order
      * @param float $amount
-     * @return bool
+     * @return bool|string
+     * @throws Exception
      */
-    public function order($order, $amount)
+    public function order($order, float $amount): bool|string
     {
         $saleRequest = new SaleRequest();
-        $transferFactory = new TransferFactory();
         $transactionSale = new TransactionSale();
-        $responseValidator = new ResponseValidator();
 
         $requestData = $saleRequest->build($order, $amount);
-        $transferObject = $transferFactory->create($requestData);
-        $response = $transactionSale->placeRequest($transferObject);
-        return $responseValidator->validate($response);
+
+        if (is_array($requestData)) {
+            $this->buildHttpTransfer($requestData);
+            $response = NgeniusHTTPCommon::placeRequest($this->httpTransfer);
+            return $this->responseValidator->validate($transactionSale->postProcess($response) ?? []);
+        }
+        return false;
     }
 
     /**
@@ -97,81 +96,100 @@ class Command extends Model
      *
      * @param array $order
      * @param float $amount
-     * @return bool
+     * @return bool|string
+     * @throws Exception
      */
-    public function purchase($order, $amount)
+    public function purchase($order, float $amount): bool|string
     {
         $purchaseRequest = new PurchaseRequest();
-        $transferFactory = new TransferFactory();
         $transactionPurchase = new TransactionPurchase();
-        $responseValidator = new ResponseValidator();
 
         $requestData = $purchaseRequest->build($order, $amount);
-        $transferObject = $transferFactory->create($requestData);
-        $response = $transactionPurchase->placeRequest($transferObject);
-        return $responseValidator->validate($response);
+
+        if (is_array($requestData)) {
+            $this->buildHttpTransfer($requestData);
+            $response = NgeniusHTTPCommon::placeRequest($this->httpTransfer);
+            return $this->responseValidator->validate($transactionPurchase->postProcess($response) ?? []);
+        }
+        return false;
     }
 
     /**
      * Order capture.
      *
-     * @param array $order
-     * @param array $ngenusOrder
-     * @return bool
+     * @param array $ngeniusOrder
+     * @return bool|string
+     * @throws Exception
      */
-    public function capture($ngenusOrder)
+    public function capture(array $ngeniusOrder): bool|string
     {
         $captureRequest = new CaptureRequest();
-        $transferFactory = new TransferFactory();
-        $transactionCapture = new TransactionCapture();
         $captureValidator = new CaptureValidator();
+        $transactionCapture = new TransactionCapture();
 
-        $requestData = $captureRequest->build($ngenusOrder);
-        $transferObject = $transferFactory->create($requestData);
-        $response = $transactionCapture->placeRequest($transferObject);
-        return $captureValidator->validate($response);
+        $requestData = $captureRequest->build($ngeniusOrder);
+
+        if (is_array($requestData)) {
+            $this->buildHttpTransfer($requestData);
+            $response = NgeniusHTTPCommon::placeRequest($this->httpTransfer);
+
+            if ($captureValidator->validate($transactionCapture->postProcess($response) ?? [])) {
+                return $response;
+            }
+        }
+        return false;
     }
 
     /**
      * Order void.
      *
-     * @param array $order
-     * @param array $ngenusOrder
-     * @return bool
+     * @param array $ngeniusOrder
+     * @return bool|string
+     * @throws Exception
      */
-    public function void($ngenusOrder)
+    public function void(array $ngeniusOrder): bool|string
     {
         $voidRequest = new VoidRequest();
-        $transferFactory = new TransferFactory();
-        $transactionVoid = new TransactionVoid();
         $voidValidator = new VoidValidator();
+        $transactionVoid = new TransactionVoid();
 
-        $requestData = $voidRequest->build($ngenusOrder);
-        $transferObject = $transferFactory->create($requestData);
-        $response = $transactionVoid->placeRequest($transferObject);
-        return $voidValidator->validate($response);
+        $requestData = $voidRequest->build($ngeniusOrder);
+        if (is_array($requestData)) {
+            $this->buildHttpTransfer($requestData);
+            $response = NgeniusHTTPCommon::placeRequest($this->httpTransfer);
+
+            if ($voidValidator->validate($transactionVoid->postProcess($response) ?? [])) {
+                return $response;
+            }
+        }
+        return false;
     }
 
     /**
      * Order refund.
      *
-     * @param array $order
-     * @param array $ngenusOrder
+     * @param array $ngeniusOrder
      * @return bool
+     * @throws Exception
      */
-    public function refund($ngenusOrder)
+    public function refund(array $ngeniusOrder): bool|string
     {
 
         $refundRequest = new RefundRequest();
-        $transferFactory = new TransferFactory();
-        $transactionRefund = new TransactionRefund();
         $refundValidator = new RefundValidator();
+        $transactionRefund = new TransactionRefund();
 
-        $requestData = $refundRequest->build($ngenusOrder);
-        $transferObject = $transferFactory->create($requestData);
-        $response = $transactionRefund->placeRequest($transferObject);
+        $requestData = $refundRequest->build($ngeniusOrder);
 
-        return $refundValidator->validate($response);
+        if (is_array($requestData)) {
+            $this->buildHttpTransfer($requestData);
+            $response = NgeniusHTTPCommon::placeRequest($this->httpTransfer);
+
+            if ($refundValidator->validate($transactionRefund->postProcess($response) ?? [])) {
+                return $response;
+            }
+        }
+        return false;
     }
 
     /**
@@ -180,7 +198,7 @@ class Command extends Model
      * @param array $data
      * @return bool
      */
-    public static function updatePsOrderPayment($data)
+    public static function updatePsOrderPayment(array $data): bool
     {
         $logger = new Logger();
         $command = new Command();
@@ -189,7 +207,7 @@ class Command extends Model
         $log['path'] = __METHOD__;
         $orderPayment = new \OrderPayment();
         $orderPayment->order_reference = pSQL($command->getOrderReference($data['id_order']));
-        $orderPayment->id_currency = (int) $order->id_currency;;
+        $orderPayment->id_currency = (int) $order->id_currency;
         $orderPayment->amount = (float) ($data['amount'] / 100);
         $orderPayment->payment_method = pSQL('N-Genius Payment Gateway');
         $orderPayment->transaction_id = pSQL($data['transaction_id']);
@@ -210,9 +228,9 @@ class Command extends Model
      * Gets Order Reference
      *
      * @param int $orderId
-     * @return array|bool
+     * @return bool|array|null
      */
-    public static function getOrderReference($orderId)
+    public static function getOrderReference(int $orderId): bool|array|null
     {
         $order = new \Order($orderId);
         if (\Validate::isLoadedObject($order)) {
@@ -225,11 +243,11 @@ class Command extends Model
     /**
      * Add Customer Message
      *
-     * @param array $response
+     * @param array|null $response
      * @param array $order
      * @return bool
      */
-    public static function addCustomerMessage($response, $order)
+    public static function addCustomerMessage(?array $response, $order): bool
     {
         $logger = new Logger();
         $command = new Command();
@@ -257,7 +275,7 @@ class Command extends Model
      * @param array $order
      * @return bool
      */
-    public static function addCustomerThread($order)
+    public static function addCustomerThread($order): bool
     {
         $command = new Command();
         if (!$command->getCustomerThread($order)) {
@@ -278,13 +296,13 @@ class Command extends Model
     }
 
     /**
-     * biuld customer message for order
+     * build customer message for order
      *
-     * @param array $response
+     * @param array|null $response
      * @param array $order
      * @return string
      */
-    public static function buildCustomerMessage($response, $order)
+    public static function buildCustomerMessage(?array $response, $order): string
     {
         $command = new Command();
         $ngeniusOrder = $command->getNgeniusOrder($order->id);
@@ -302,8 +320,9 @@ class Command extends Model
                 $amount = $command->getTransactionAmount($response);
             }
             // capture
-            if (isset($response['_embedded']['cnp:capture']) && is_array($response['_embedded']['cnp:capture'])) {
-                $lastTransaction = end($response['_embedded']['cnp:capture']);
+            if (isset($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
+                && is_array($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL])) {
+                $lastTransaction = end($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL]);
                 if (isset($lastTransaction['_links']['self']['href'])) {
                     $transactionArr = explode('/', $lastTransaction['_links']['self']['href']);
                     $paymentId = 'Capture ID : '.end($transactionArr).' | ';
@@ -311,8 +330,9 @@ class Command extends Model
                 $amount = $command->getCaptureAmount($lastTransaction);
             }
             // refund
-            if (isset($response['_embedded']['cnp:refund']) && is_array($response['_embedded']['cnp:refund'])) {
-                $lastTransaction = end($response['_embedded']['cnp:refund']);
+            if (isset($response['_embedded'][self::NGENIUS_REFUND_LITERAL])
+                && is_array($response['_embedded'][self::NGENIUS_REFUND_LITERAL])) {
+                $lastTransaction = end($response['_embedded'][self::NGENIUS_REFUND_LITERAL]);
                 $paymentId = $command->getRefundPaymentId($lastTransaction);
                 $amount = $command->getRefundAmount($response, $lastTransaction);
             }
@@ -326,10 +346,10 @@ class Command extends Model
     /**
      * get transaction amount
      *
-     * @param array $response
-     * @return string
+     * @param $lastTransaction
+     * @return string|null
      */
-    public function getRefundPaymentId($lastTransaction)
+    public function getRefundPaymentId($lastTransaction): ?string
     {
         $paymentId = null;
         if (isset($lastTransaction['_links']['self']['href'])) {
@@ -345,13 +365,13 @@ class Command extends Model
      * @param array $response
      * @return string
      */
-    public function getTransactionAmount($response)
+    public function getTransactionAmount(array $response): ?string
     {
         $amount = null;
         if (isset($response['_embedded']['payment'][0]['amount'])) {
             $value = $response['_embedded']['payment'][0]['amount']['value'] / 100;
             $currencyCode =  $response['_embedded']['payment'][0]['amount']['currencyCode'];
-            $amount = 'Amount : '.$currencyCode.$value.' | ';
+            $amount = self::AMOUNT_LITERAL.$currencyCode.$value.' | ';
         }
         return $amount;
     }
@@ -362,13 +382,15 @@ class Command extends Model
      * @param array $lastTransaction
      * @return string
      */
-    public function getCaptureAmount($lastTransaction)
+    public function getCaptureAmount(array $lastTransaction): ?string
     {
         $amount = null;
-        if (isset($lastTransaction['state']) && ($lastTransaction['state'] == 'SUCCESS') && isset($lastTransaction['amount']['value'])) {
+        if (isset($lastTransaction['state'])
+            && ($lastTransaction['state'] == 'SUCCESS')
+            && isset($lastTransaction['amount']['value'])) {
             $value = $lastTransaction['amount']['value'] / 100;
             $currencyCode =  $lastTransaction['amount']['currencyCode'];
-            $amount = 'Amount : '.$currencyCode.$value.' | ';
+            $amount = self::AMOUNT_LITERAL.$currencyCode.$value.' | ';
         }
         return $amount;
     }
@@ -380,14 +402,14 @@ class Command extends Model
      * @param array $lastTransaction
      * @return string
      */
-    public function getRefundAmount($response, $lastTransaction)
+    public function getRefundAmount(array $response, array $lastTransaction): ?string
     {
         $amount = null;
-        foreach ($response['_embedded']['cnp:refund'] as $refund) {
+        foreach ($response['_embedded'][self::NGENIUS_REFUND_LITERAL] as $refund) {
             if (isset($refund['state']) && ($refund['state'] == 'SUCCESS') && isset($refund['amount']['value'])) {
                 $value = $refund['amount']['value'] / 100;
                 $currencyCode =  $lastTransaction['amount']['currencyCode'];
-                $amount = 'Amount : '.$currencyCode.$value.' | ';
+                $amount = self::AMOUNT_LITERAL.$currencyCode.$value.' | ';
             }
         }
         return $amount;
@@ -399,7 +421,7 @@ class Command extends Model
      * @param object $order
      * @return bool
      */
-    public function sendOrderConfirmationMail($order)
+    public function sendOrderConfirmationMail(object $order): bool
     {
         $command = new Command();
         $logger = new Logger();
@@ -410,6 +432,7 @@ class Command extends Model
         if ($orderConfirmationData) {
             $data = unserialize($orderConfirmationData['data']);
             $orderLanguage = new \Language((int) $order->id_lang);
+            /** @noinspection PhpUndefinedConstantInspection */
             \Mail::Send(
                 (int) $order->id_lang,
                 'order_conf',
@@ -450,38 +473,28 @@ class Command extends Model
      * @param int|null $storeId
      * @return array
      */
-    public function getOrderStatusRequest($ref, $storeId = null)
+    public function getOrderStatusRequest(string $ref, int $storeId = null): array
     {
         $tokenRequest = new TokenRequest();
-        $transferFactory = new TransferFactory();
-        $transactionOrderRequest = new TransactionOrderRequest();
         $orderStatusRequest = new OrderStatusRequest();
+        $transactionOrderRequest = new TransactionOrderRequest;
         $requestData =  [
             'token'     => $tokenRequest->getAccessToken(),
             'request'   => $orderStatusRequest->getBuildArray($ref, $storeId),
         ];
-        $transferObject =  $transferFactory->create($requestData);
-        return $transactionOrderRequest->placeRequest($transferObject);
+        $this->buildHttpTransfer($requestData);
+        return $transactionOrderRequest->postProcess(NgeniusHTTPCommon::placeRequest($this->httpTransfer));
     }
 
-
     /**
-     * validate mcp enabled order
-     *
-     * @param id $orderId
-     * @return bool
+     * @param $requestData
+     * @return void
      */
-    public function validateMcpOrder($orderId)
+    public function buildHttpTransfer($requestData): void
     {
-        /*$command = new Command();
-        $orderReference = $command->getNgeniusOrder($orderId);
-        if (isset($orderReference['reference'])) {
-            $response = $command->getOrderStatusRequest($orderReference['reference']);
-            $response = json_decode(json_encode($response), true);
-            if (isset($response['_embedded']['payment'][0]['mcpResponse'])) {
-                return true;
-            }
-        }*/
-        return false;
+        $this->httpTransfer->setPaymentHeaders($requestData['token']);
+        $this->httpTransfer->setMethod($requestData['request']['method']);
+        $this->httpTransfer->setData($requestData['request']['data']);
+        $this->httpTransfer->setUrl($requestData['request']['uri']);
     }
 }

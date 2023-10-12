@@ -1,1 +1,0 @@
-# Hosted Payment Gateway Solution

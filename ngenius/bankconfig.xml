@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <module>
-    <name>NGenius Online</name>
-    <displayName>NGenius Online Payment Gateway</displayName>
-    <description>The payment gateway from NetworkInternational</description>
+    <name>N-Genius Online</name>
+    <displayName>N-Genius Online</displayName>
+    <description>Accept payments via Network International.</description>
     <orderStatus>NGENIUS</orderStatus>
-    <orderStatusLabel>NGenius Online</orderStatusLabel>
+    <orderStatusLabel>N-Genius Online</orderStatusLabel>
     <sandboxApiUrl>https://api-gateway.ngenius-payments.com</sandboxApiUrl>
     <liveApiUrl>https://api-gateway.ngenius-payments.com</liveApiUrl>
 </module>

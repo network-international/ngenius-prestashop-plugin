@@ -4,17 +4,22 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticIniteba13788bcae7c81985d5c9b8fc1314c
+class ComposerStaticInit87f2a13602be4b806e7adadc12e2f293
 {
     public static $prefixLengthsPsr4 = array (
-        'N' =>
+        'N' => 
         array (
+            'Ngenius\\NgeniusCommon\\' => 22,
             'NGenius\\' => 8,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'NGenius\\' =>
+        'Ngenius\\NgeniusCommon\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/ngenius/ngenius-common/src',
+        ),
+        'NGenius\\' => 
         array (
             0 => __DIR__ . '/../..' . '/classes',
         ),
@@ -27,9 +32,10 @@ class ComposerStaticIniteba13788bcae7c81985d5c9b8fc1314c
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticIniteba13788bcae7c81985d5c9b8fc1314c::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticIniteba13788bcae7c81985d5c9b8fc1314c::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticIniteba13788bcae7c81985d5c9b8fc1314c::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit87f2a13602be4b806e7adadc12e2f293::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit87f2a13602be4b806e7adadc12e2f293::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit87f2a13602be4b806e7adadc12e2f293::$classMap;
+
         }, null, ClassLoader::class);
     }
 }

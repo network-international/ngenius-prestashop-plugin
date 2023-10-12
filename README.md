@@ -1,10 +1,10 @@
-# NGenius Prestashop
+# N-Genius PrestaShop
 
 ![Banner](assets/banner.jpg)
 
 ## Installation
 
-For instructions on setting up the NGenius Prestashop plugin, please refer our [documentation.](https://docs.ngenius-payments.com/docs/prestashop)
+For instructions on setting up the N-Genius PrestaShop plugin, please refer our [documentation.](https://docs.ngenius-payments.com/docs/prestashop)
 
 
 ## Download

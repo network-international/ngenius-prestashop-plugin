@@ -1,31 +1,8 @@
 <?php
-/**
-* 2007-2022 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2022 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
 
 namespace NGenius\Http;
 
+use Exception;
 use NGenius\Command;
 use NGenius\Config\Config;
 use NGenius\Http\AbstractTransaction;
@@ -33,34 +10,24 @@ use NGenius\Logger;
 
 class TransactionRefund extends Abstracttransaction
 {
-
-    /**
-     * Processing of API request body
-     *
-     * @param array $data
-     * @return string
-     */
-    protected function preProcess(array $data)
-    {
-        return json_encode($data);
-    }
-
     /**
      * Processing of API response
      *
-     * @param array $response
-     * @return array|bool
+     * @param $responseString
+     * @return array|null
+     * @throws Exception
      */
-    protected function postProcess($responseEnc)
+    public function postProcess($responseString): ?array
     {
 
-        $response = json_decode($responseEnc, true);
+        $response = json_decode($responseString, true);
         if (isset($response['errors']) && is_array($response['errors'])) {
-            return false;
+            return null;
         } else {
             $lastTransaction = '';
-            if (isset($response['_embedded']['cnp:refund']) && is_array($response['_embedded']['cnp:refund'])) {
-                $lastTransaction = end($response['_embedded']['cnp:refund']);
+            if (isset($response['_embedded'][self::NGENIUS_REFUND_LITERAL])
+                && is_array($response['_embedded'][self::NGENIUS_REFUND_LITERAL])) {
+                $lastTransaction = end($response['_embedded'][self::NGENIUS_REFUND_LITERAL]);
             }
 
             $logger = new Logger();
@@ -69,10 +36,13 @@ class TransactionRefund extends Abstracttransaction
             $logger->addLog("********************");
 
 
-            if (isset($lastTransaction['state']) && $lastTransaction['state'] == 'SUCCESS') {
+
+            if (isset($lastTransaction['state']) && ($lastTransaction['state'] == 'SUCCESS') ||
+                (isset($lastTransaction['_links']['cnp:china_union_pay_results'])
+                    && $lastTransaction['state'] == 'REQUESTED')) {
                 return $this->refundProcess($response, $lastTransaction);
             } else {
-                return false;
+                return null;
             }
         }
     }
@@ -81,13 +51,14 @@ class TransactionRefund extends Abstracttransaction
      * Processing refund response
      *
      * @param array $response
+     * @param $lastTransaction
      * @return array|bool
+     * @throws Exception
      */
-    protected function refundProcess($response, $lastTransaction)
+    protected function refundProcess(array $response, $lastTransaction): array|bool
     {
         $config = new Config();
         $command = new Command();
-        //$captured_amt = $this->capturedAmount($response);
         $captured_amt = $response['amount']['value'];
         $refunded_amt = $this->refundedAmount($response);
         $logger = new Logger();
@@ -95,8 +66,8 @@ class TransactionRefund extends Abstracttransaction
         $logger->addLog($refunded_amt);
         $last_refunded_amt = $this->lastRefundAmount($lastTransaction);
         $transactionId = $this->transactionId($lastTransaction);
-        $orderReference = isset($response['orderReference']) ? $response['orderReference'] : '';
-        $state = isset($response['state']) ? $response['state'] : '';
+        $orderReference = $response['orderReference'] ?? '';
+        $state = $response['state'] ?? '';
         $captureAmt = $captured_amt > 0 ? $captured_amt / 100 : 0;
         $refundedAmt = $refunded_amt > 0 ? $refunded_amt / 100 : 0;
         if (($captureAmt - $refundedAmt) == 0) {
@@ -120,12 +91,7 @@ class TransactionRefund extends Abstracttransaction
         $logger->addLog("***********************");
 
         $command->updateNngeniusNetworkinternational($ngeniusOrder);
-        //$this->update_ngenius_order_table($ngeniusOrder);
 
-
-        $order = new \Order($response['merchantOrderReference']);
-        $command->addCustomerMessage(json_decode(json_encode($response), true), $order);
-        $order->setCurrentState((int)\Configuration::get($orderStatus));
         return [
             'result' => [
                 'total_refunded' => $refunded_amt,
@@ -141,14 +107,17 @@ class TransactionRefund extends Abstracttransaction
      * get captured Amount
      *
      * @param array $response
-     * @return string
+     * @return int|string
      */
-    protected function capturedAmount($response)
+    protected function capturedAmount(array $response): int|string
     {
         $captured_amt = 0;
-        if (isset($response['_embedded']['cnp:capture']) && is_array($response['_embedded']['cnp:capture'])) {
-            foreach ($response['_embedded']['cnp:capture'] as $capture) {
-                if (isset($capture['state']) && ($capture['state'] == 'SUCCESS') && isset($capture['amount']['value'])) {
+        if (isset($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
+            && is_array($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
+        ) {
+            foreach ($response['_embedded'][self::NGENIUS_CAPTURE_LITERAL] as $capture) {
+                if (isset($capture['state']) && ($capture['state'] == 'SUCCESS')
+                    && isset($capture['amount']['value'])) {
                     $captured_amt += $capture['amount']['value'];
                 }
             }
@@ -162,14 +131,21 @@ class TransactionRefund extends Abstracttransaction
      * get refunded Amount
      *
      * @param array $response
-     * @return string
+     * @return int|string
      */
-    protected function refundedAmount($response)
+    protected function refundedAmount(array $response): int|string
     {
         $refunded_amt = 0;
-        if (isset($response['_embedded']['cnp:refund']) && is_array($response['_embedded']['cnp:refund'])) {
-            foreach ($response['_embedded']['cnp:refund'] as $refund) {
-                if (isset($refund['state']) && ($refund['state'] == 'SUCCESS') && isset($refund['amount']['value'])) {
+        if (isset($response['_embedded'][self::NGENIUS_REFUND_LITERAL])
+            && is_array($response['_embedded'][self::NGENIUS_REFUND_LITERAL])
+        ) {
+            foreach ($response['_embedded'][self::NGENIUS_REFUND_LITERAL] as $refund) {
+                if (isset($refund['state'])
+                    && ($refund['state'] == 'SUCCESS'
+                    || (isset($refund["_links"][self::CUP_RESULTS_LITERAL])
+                    && $refund['state'] == 'REQUESTED'))
+                    && isset($refund['amount']['value'])
+                ) {
                     $refunded_amt += $refund['amount']['value'];
                 }
             }
@@ -183,10 +159,11 @@ class TransactionRefund extends Abstracttransaction
      * @param array $lastTransaction
      * @return string
      */
-    protected function lastRefundAmount($lastTransaction)
+    protected function lastRefundAmount(array $lastTransaction): float|int|string
     {
         $last_refunded_amt = 0;
-        if (isset($lastTransaction['state']) && ($lastTransaction['state'] == 'SUCCESS') && isset($lastTransaction['amount']['value'])) {
+        if (isset($lastTransaction['state']) && ($lastTransaction['state'] == 'SUCCESS')
+            && isset($lastTransaction['amount']['value'])) {
             $last_refunded_amt = $lastTransaction['amount']['value'] / 100;
         }
         return $last_refunded_amt;
@@ -198,7 +175,7 @@ class TransactionRefund extends Abstracttransaction
      * @param array $lastTransaction
      * @return string
      */
-    protected function transactionId($lastTransaction)
+    protected function transactionId(array $lastTransaction): string
     {
         $transactionId = '';
         if (isset($lastTransaction['_links']['self']['href'])) {
