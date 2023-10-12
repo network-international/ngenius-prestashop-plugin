@@ -1,32 +1,10 @@
 <?php
-/**
-* 2007-2022 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2022 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
 
 namespace NGenius\Config;
 
+use Exception;
 use NGenius\Command;
+use SimpleXMLElement;
 
 class Config
 {
@@ -41,7 +19,7 @@ class Config
     const REFUND_ENDPOINT       = "/transactions/outlets/%s/orders/%s/payments/%s/captures/%s/refund";
     const SANDBOX = 'sandbox';
     const LIVE    = 'live';
-    
+
 
     /**
      * Gets Display Name.
@@ -49,7 +27,7 @@ class Config
      * @param int|null $storeId
      * @return string
      */
-    public function getDisplayName($storeId = null)
+    public function getDisplayName(int $storeId = null): string
     {
         return \Configuration::get('DISPLAY_NAME', $storeId = null);
     }
@@ -57,13 +35,15 @@ class Config
     /**
      * Get XML data
      *
-     * @return string Token
+     * @return false|SimpleXMLElement Token
+     * @throws Exception
      */
     public function getConfig()
     {
+        /** @noinspection PhpUndefinedConstantInspection */
         $file = _PS_MODULE_DIR_ . 'ngenius/bankconfig.xml';
         if (file_exists($file)) {
-            return new \SimpleXMLElement(\Tools::file_get_contents($file));
+            return new SimpleXMLElement(\Tools::file_get_contents($file));
         } else {
             return false;
         }
@@ -73,8 +53,9 @@ class Config
      * Gets Module Name.
      *
      * @return string
+     * @throws Exception
      */
-    public function getModuleName()
+    public function getModuleName(): false|string
     {
         $config = $this->getConfig();
         if (!empty($config->name)) {
@@ -86,9 +67,10 @@ class Config
     /**
      * Gets Module Display Name.
      *
-     * @return string
+     * @return false|string
+     * @throws Exception
      */
-    public function getModuleDisplayName()
+    public function getModuleDisplayName(): false|string
     {
         $config = $this->getConfig();
         if (!empty($config->displayName)) {
@@ -100,9 +82,10 @@ class Config
     /**
      * Gets Module Description.
      *
-     * @return string
+     * @return false|string
+     * @throws Exception
      */
-    public function getModuleDescription()
+    public function getModuleDescription(): false|string
     {
         $config = $this->getConfig();
         if (!empty($config->description)) {
@@ -114,9 +97,10 @@ class Config
     /**
      * Gets Order Status.
      *
-     * @return string
+     * @return false|string
+     * @throws Exception
      */
-    public function getOrderStatus()
+    public function getOrderStatus(): false|string
     {
         $config = $this->getConfig();
         if (!empty($config->orderStatus)) {
@@ -128,9 +112,10 @@ class Config
     /**
      * Gets Order Status Label.
      *
-     * @return string
+     * @return false|string
+     * @throws Exception
      */
-    public function getOrderStatusLabel()
+    public function getOrderStatusLabel(): false|string
     {
         $config = $this->getConfig();
         if (!empty($config->orderStatusLabel)) {
@@ -144,7 +129,7 @@ class Config
      *
      * @return string URL
      */
-    public function getSandboxApiUrl()
+    public function getSandboxApiUrl(): string
     {
         return \Configuration::get('UAT_API_URL');
     }
@@ -154,19 +139,19 @@ class Config
      *
      * @return string URL
      */
-    public function getLiveApiUrl()
+    public function getLiveApiUrl(): string
     {
         return \Configuration::get('LIVE_API_URL');
     }
 
-       
+
     /**
      * Gets Api Key.
      *
      * @param int|null $storeId
      * @return string
      */
-    public function getApiKey($storeId = null)
+    public function getApiKey(int $storeId = null): string
     {
         return \Configuration::get('API_KEY', $storeId);
     }
@@ -177,7 +162,7 @@ class Config
      * @param int|null $storeId
      * @return int
      */
-    public function isDebugMode($storeId = null)
+    public function isDebugMode(int $storeId = null): bool|int
     {
         return (bool) \Configuration::get('DEBUG', $storeId);
     }
@@ -185,10 +170,10 @@ class Config
     /**
      * Gets Outlet Reference ID.
      *
-     * @param int|null $storeId
+     * @param $orderRef
      * @return string
      */
-    public function getOutletReferenceId($orderRef, $storeId = null)
+    public function getOutletReferenceId($orderRef): false|string
     {
         $command = new Command();
         $ngOrder = $command->getNgeniusOrderReference($orderRef);
@@ -204,7 +189,7 @@ class Config
      * @param int|null $storeId
      * @return string
      */
-    public function getMultiOutletReferenceId($currency, $storeId = null)
+    public function getMultiOutletReferenceId($currency, int $storeId = null): false|string
     {
         $decCurOut = json_decode(\Configuration::get('CURRENCY_OUTLETID', $storeId), true);
         foreach ($decCurOut as $value) {
@@ -220,8 +205,9 @@ class Config
      *
      * @param int|null $storeId
      * @return string
+     * @throws Exception
      */
-    public function getInitialStatus($storeId = null)
+    public function getInitialStatus(int $storeId = null): string
     {
         $config = new Config();
         return \Configuration::get($config->getOrderStatus().'_PENDING', $storeId);
@@ -234,7 +220,7 @@ class Config
      * @param int|null $storeId
      * @return bool
      */
-    public function isActive($storeId = null)
+    public function isActive(int $storeId = null): bool
     {
         return (bool) \Configuration::get('ENABLED', $storeId);
     }
@@ -242,11 +228,12 @@ class Config
     /**
      * Retrieve apikey and outletReferenceId empty or not
      *
+     * @param null $storeId
      * @return bool
      */
-    public function isComplete($storeId = null)
+    public function isComplete($storeId = null): bool
     {
-        return (!empty(Config::getApiKey($storeId))) ? (bool) true : (bool) false;
+        return (!empty(Config::getApiKey($storeId)));
     }
 
     /**
@@ -255,34 +242,43 @@ class Config
      * @param int|null $storeId
      * @return string
      */
-    public function getEnvironment($storeId = null)
+    public function getEnvironment(int $storeId = null): string
     {
         return \Configuration::get('ENVIRONMENT', $storeId);
     }
 
-    
+    /**
+     * Gets CURL HTTP Version
+     * @param $storeId
+     * @return mixed
+     */
+    public function getHTTPVersion($storeId = null): mixed
+    {
+        return \Configuration::get('HTTP_VERSION', $storeId);
+    }
+
     /**
      * Gets Api Url.
      *
      * @param int|null $storeId
      * @return string
      */
-    public function getApiUrl($storeId = null)
+    public function getApiUrl(int $storeId = null): string
     {
         $value = $this->getLiveApiUrl();
-        if($this->getEnvironment($storeId) == Config::SANDBOX){
+        if ($this->getEnvironment($storeId) == Config::SANDBOX) {
             $value = $this->getSandboxApiUrl();
         }
         return $value;
     }
-    
+
     /**
      * Gets Token Request URL.
      *
      * @param int|null $storeId
      * @return string
      */
-    public function getTokenRequestURL($storeId = null)
+    public function getTokenRequestURL(int $storeId = null): string
     {
         $token_endpoint = Config::TOKEN_ENDPOINT;
         return $this->getApiUrl($storeId) . $token_endpoint;
@@ -291,10 +287,11 @@ class Config
     /**
      * Gets Order Request URL.
      *
+     * @param $currency
      * @param int|null $storeId
      * @return string
      */
-    public function getOrderRequestURL($currency, $storeId = null)
+    public function getOrderRequestURL($currency, int $storeId = null): string
     {
         $order_endpoint = Config::ORDER_ENDPOINT;
         $endpoint = sprintf($order_endpoint, $this->getMultiOutletReferenceId($currency, $storeId));
@@ -308,7 +305,7 @@ class Config
      * @param string $orderRef
      * @return string
      */
-    public function getFetchRequestURL($orderRef, $storeId = null)
+    public function getFetchRequestURL(string $orderRef, int $storeId = null): string
     {
         $fetch_endpoint = Config::FETCH_ENDPOINT;
         $endpoint = sprintf($fetch_endpoint, $this->getOutletReferenceId($orderRef, $storeId), $orderRef);
@@ -321,8 +318,9 @@ class Config
      * @param int|null $storeId
      * @return bool
      */
-    public function isDebugOn($storeId = null)
+    public function isDebugOn(int $storeId = null): bool
     {
+        /** @noinspection PhpUndefinedClassConstantInspection */
         return (bool) $this->getValue(Config::DEBUG, $storeId);
     }
 
@@ -334,10 +332,15 @@ class Config
      * @param string $paymentRef
      * @return string
      */
-    public function getOrderCaptureURL($orderRef, $paymentRef, $storeId = null)
+    public function getOrderCaptureURL(string $orderRef, string $paymentRef, int $storeId = null): string
     {
         $capture_endpoint = Config::CAPTURE_ENDPOINT;
-        $endpoint = sprintf($capture_endpoint, $this->getOutletReferenceId($orderRef, $storeId), $orderRef, $paymentRef);
+        $endpoint = sprintf(
+            $capture_endpoint,
+            $this->getOutletReferenceId($orderRef, $storeId),
+            $orderRef,
+            $paymentRef
+        );
         return $this->getApiUrl($storeId) . $endpoint;
     }
 
@@ -349,7 +352,7 @@ class Config
      * @param string $paymentRef
      * @return string
      */
-    public function getOrderVoidURL($orderRef, $paymentRef, $storeId = null)
+    public function getOrderVoidURL(string $orderRef, string $paymentRef, int $storeId = null): string
     {
         $void_endpoint = Config::VOID_AUTH_ENDPOINT;
         $endpoint = sprintf($void_endpoint, $this->getOutletReferenceId($orderRef, $storeId), $orderRef, $paymentRef);
@@ -365,10 +368,21 @@ class Config
      * @param string $transactionId
      * @return string
      */
-    public function getOrderRefundURL($orderRef, $paymentRef, $transactionId, $storeId = null)
+    public function getOrderRefundURL(
+        string $orderRef,
+        string $paymentRef,
+        string $transactionId,
+        int $storeId = null
+    ): string
     {
         $refund_endpoint = Config::REFUND_ENDPOINT;
-        $endpoint = sprintf($refund_endpoint, $this->getOutletReferenceId($orderRef, $storeId), $orderRef, $paymentRef, $transactionId);
+        $endpoint = sprintf(
+            $refund_endpoint,
+            $this->getOutletReferenceId($orderRef, $storeId),
+            $orderRef,
+            $paymentRef,
+            $transactionId
+        );
         return $this->getApiUrl() . $endpoint;
     }
 }

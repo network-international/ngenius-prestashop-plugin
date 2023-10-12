@@ -1,28 +1,4 @@
 <?php
-/**
-* 2007-2022 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2022 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
 
 namespace NGenius\Request;
 
@@ -35,7 +11,7 @@ class RefundRequest
 
     const CNP_CAPTURE = "cnp:capture";
     const CNP_REFUND = "cnp:refund";
-    const NGENIUS_EMBEDDED = '_embedded';
+
     /**
      * Builds ENV refund request
      *
@@ -43,7 +19,7 @@ class RefundRequest
       * @param array $ngenusOrder
      * @return array|bool
      */
-    public function build($ngenusOrder)
+    public function build(array $ngenusOrder): bool|array
     {
         $tokenRequest = new TokenRequest();
         $config = new Config();
@@ -69,6 +45,10 @@ class RefundRequest
 
         $refund_url = $this->get_refund_url($payment);
 
+        if (empty($refund_url)) {
+            return false;
+        }
+
         if ($config->isComplete()) {
             $log['is_configured'] = true;
             $data = [
@@ -78,7 +58,11 @@ class RefundRequest
                         'amount' => [
                             'currencyCode' => $ngenusOrder['currency'],
                             'value' => strval($amount),
-                        ]
+                        ],
+                        'merchantDefinedData' => [
+                            'pluginName' => 'prestashop',
+                            'pluginVersion' => '1.0.2'
+                        ],
                     ],
                     'method' => "POST",
                     'uri' => $refund_url
@@ -87,18 +71,22 @@ class RefundRequest
             $logger->addLog($log);
             return $data;
         }
+        return false;
     }
 
-    public function get_refund_url($payment){
+    public function get_refund_url($payment)
+    {
         $refund_url = "";
         $cnpcapture = self::CNP_CAPTURE;
         $cnprefund = self::CNP_REFUND;
-        if($payment->state == "PURCHASED" && isset($payment->_links->$cnprefund->href)){
+        if ($payment->state == "PURCHASED" && isset($payment->_links->$cnprefund->href)) {
             $refund_url = $payment->_links->$cnprefund->href;
-        }elseif($payment->state == "CAPTURED" && isset($payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href)){
+        } elseif ($payment->state == "CAPTURED"
+            && isset($payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href)) {
             $refund_url = $payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href;
         }else {
-            if (isset($payment->_links->$cnprefund->href)) {
+            if (isset($payment->_links->$cnprefund->href)
+                || isset($payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href)) {
                 $refund_url = $payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href;
             }
         }
@@ -106,7 +94,8 @@ class RefundRequest
         return $refund_url;
     }
 
-    public function query_order($data){
+    public function query_order($data)
+    {
 
         $authorization = "Authorization: Bearer " . $data['token'];
         $headers = array(

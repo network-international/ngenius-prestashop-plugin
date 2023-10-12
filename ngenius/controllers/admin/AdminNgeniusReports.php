@@ -1,40 +1,15 @@
 <?php
-/**
-* 2007-2022 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2022 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
 
 use NGenius\Config\Config;
 
 class AdminNgeniusReportsController extends AdminController
 {
-
     /**
      * function __construct
      *
      * @return void
      */
-    
+
     public function __construct()
     {
         $this->bootstrap = true;
@@ -53,7 +28,7 @@ class AdminNgeniusReportsController extends AdminController
 
         $status = $config->getOrderStatus();
         $label = $config->getOrderStatusLabel();
-        
+
         $this->statusArr = [
             $status.'_PENDING'           => $label.' Pending',
             $status.'_AWAIT_3DS'         => $label.' Await 3DS',
@@ -67,20 +42,20 @@ class AdminNgeniusReportsController extends AdminController
             $status.'_FULLY_REFUNDED'    => $label.' Fully Refunded',
             $status.'_PARTIALLY_REFUNDED' => $label.' Partially Refunded'
         ];
-        
+
         $this->fields_list = array(
             'id_order' => array(
                 'title' => $this->trans('Id', array(), 'Admin.Global'),
                 'orderby' => false,
-                
+
             ),
-           
+
             'amount' => array(
                 'title' => $this->trans('Amount', array(), 'Admin.Global'),
                 'callback' => 'setOrderCurrency',
                 'orderby' => false,
             ),
-            
+
             'reference' => array(
                 'title' => $this->trans('Reference', array(), 'Admin.Global'),
                 'orderby' => false,
@@ -95,13 +70,13 @@ class AdminNgeniusReportsController extends AdminController
                 'title' => $this->trans('State', array(), 'Admin.Global'),
                 'orderby' => false,
             ),
-            
+
             'status' => array(
                 'title' => $this->trans('Status', array(), 'Admin.Global'),
                 'orderby' => false,
                 'callback' => 'renderStatus',
             ),
-             
+
            'capture_amt' => array(
                 'title' => $this->trans('Capture Amount', array(), 'Admin.Global'),
                 'orderby' => false,
@@ -128,18 +103,18 @@ class AdminNgeniusReportsController extends AdminController
      * @param string $tr
      * @return string
      */
-    public static function setOrderCurrency($echo, $tr)
+    public static function setOrderCurrency(array $echo, string $tr): string
     {
         $order = new \Order($tr['id_order']);
         return \Tools::displayPrice($echo, (int) $order->id_currency);
     }
-    
+
     /**
      * Render List.
      *
      * @return object
      */
-    public function renderList()
+    public function renderList(): object
     {
         $this->_select = ' nid as  id_ning_online_payment';
         return parent::renderList();
@@ -151,7 +126,7 @@ class AdminNgeniusReportsController extends AdminController
      * @param string $status
      * @return string
      */
-    public function renderStatus($status)
+    public function renderStatus($status): string
     {
         return $this->statusArr[$status];
     }

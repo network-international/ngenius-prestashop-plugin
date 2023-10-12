@@ -1,28 +1,3 @@
-{*
-* 2007-2022 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2021 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*}
-
 <ul>
     {foreach from=$config key=name item=value}           
         {assign var=name value=value}
@@ -36,7 +11,7 @@
             <div class="form-group">
                 <label class="control-label col-lg-3 required">Display Name</label>
                 <div class="col-lg-6">
-                    <input type="text" name="DISPLAY_NAME" id="DISPLAY_NAME" value="{($config['DISPLAY_NAME']) ? $config['DISPLAY_NAME'] : "NGenius Online Payment Gateway"}" class="" required="required">
+                    <input type="text" name="DISPLAY_NAME" id="DISPLAY_NAME" value="{($config['DISPLAY_NAME']) ? $config['DISPLAY_NAME'] : "N-Genius Online Payment Gateway"}" class="" required="required">
                 </div>
             </div>
             <div class="form-group">
@@ -99,7 +74,19 @@
                     </div>
                 {/foreach}
             </div>
-            
+            <div class="form-group">
+                <label class="control-label col-lg-3 required">HTTP Version</label>
+                <div class="col-lg-6">
+                    <select name="HTTP_VERSION" class="t fixed-width-xl" id="HTTP_VERSION">
+                        <option value="CURL_HTTP_VERSION_NONE" {($config['HTTP_VERSION'] eq 'CURL_HTTP_VERSION_NONE') ? 'selected="selected"' : ''}>none</option>
+                        <option value="CURL_HTTP_VERSION_1_0" {($config['HTTP_VERSION'] eq 'CURL_HTTP_VERSION_1_0') ? 'selected="selected"' : ''}>1.0</option>
+                        <option value="CURL_HTTP_VERSION_1_1" {($config['HTTP_VERSION'] eq 'CURL_HTTP_VERSION_1_1') ? 'selected="selected"' : ''}>1.1</option>
+                        <option value="CURL_HTTP_VERSION_2_0" {($config['HTTP_VERSION'] eq 'CURL_HTTP_VERSION_2_0') ? 'selected="selected"' : ''}>2.0</option>
+                        <option value="CURL_HTTP_VERSION_2TLS" {($config['HTTP_VERSION'] eq 'CURL_HTTP_VERSION_2TLS') ? 'selected="selected"' : ''}>2 TLS</option>
+                        <option value="CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE" {($config['HTTP_VERSION'] eq 'CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE') ? 'selected="selected"' : ''}>2 PRIOR KNOWLEDGE</option>
+                    </select>
+                </div>
+            </div>
             <div class="form-group">
                 <label class="control-label col-lg-3 required"> Debug</label>
                 <div class="col-lg-6">
