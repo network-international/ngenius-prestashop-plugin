@@ -2,12 +2,12 @@
 <module>
     <name>ngenius</name>
     <displayName><![CDATA[N-Genius Online]]></displayName>
-    <version><![CDATA[1.0.2]]></version>
+    <version><![CDATA[1.1.0]]></version>
     <description><![CDATA[Accept payments via Network International.]]></description>
     <author><![CDATA[Network International]]></author>
     <tab><![CDATA[payments_gateways]]></tab>
-	<confirmUninstall><![CDATA[Are you sure you want to uninstall this module?]]></confirmUninstall>
+    <confirmUninstall><![CDATA[Are you sure you want to uninstall this module?]]></confirmUninstall>
     <is_configurable>1</is_configurable>
     <need_instance>1</need_instance>
-	<limited_countries></limited_countries>
+    <limited_countries></limited_countries>
 </module>

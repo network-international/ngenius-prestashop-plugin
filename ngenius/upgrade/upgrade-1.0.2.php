@@ -17,7 +17,7 @@ function upgrade_module_1_0_2($module): bool
     END IF;"
     );
 
-    $db = Db::getInstance();
+    $db      = Db::getInstance();
     $success = true;
     foreach ($queries as $query) {
         $success &= $db->execute($query);
@@ -28,7 +28,7 @@ function upgrade_module_1_0_2($module): bool
     MODIFY COLUMN `refunded_amt` DECIMAL(10,2);"
     );
 
-    $db = Db::getInstance();
+    $db      = Db::getInstance();
     $success = true;
     foreach ($queries as $query) {
         $success &= $db->execute($query);
@@ -36,6 +36,7 @@ function upgrade_module_1_0_2($module): bool
 
     $module->registerHook('displayHeader');
     $module->registerHook('actionFrontControllerSetMedia');
+
     return true; // Return true if success.
 }
 

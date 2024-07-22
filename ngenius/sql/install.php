@@ -1,7 +1,7 @@
 <?php
 
 /** @noinspection PhpUndefinedConstantInspection */
-$sql[] = "CREATE TABLE IF NOT EXISTS `"._DB_PREFIX_."ning_online_payment`(
+$sql[] = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "ning_online_payment`(
         `nid` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'Id',
         `id_cart` int(10) unsigned NOT NULL COMMENT 'Cart Id',
         `id_order` varchar(55) NOT NULL COMMENT 'Order Id',
@@ -20,21 +20,21 @@ $sql[] = "CREATE TABLE IF NOT EXISTS `"._DB_PREFIX_."ning_online_payment`(
         `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Created On',
         PRIMARY KEY (`nid`),
         UNIQUE KEY `CART_ID_ORDER_ID` (`id_cart`,`id_order`)
-    )ENGINE=`"._MYSQL_ENGINE_."` CHARSET=utf8";
+    )ENGINE=`" . _MYSQL_ENGINE_ . "` CHARSET=utf8";
 
 
 /** @noinspection PhpUndefinedConstantInspection */
-$sql[] = "CREATE TABLE IF NOT EXISTS `"._DB_PREFIX_."ning_order_email_content`(
+$sql[] = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "ning_order_email_content`(
         `id` int(11) NOT NULL AUTO_INCREMENT,
         `id_order` int(11) NOT NULL,
         `data` text NOT NULL,
         `email_send` int(11) DEFAULT NULL,
         `sent_at` timestamp NULL DEFAULT NULL,
         PRIMARY KEY (`id`)
-    ) ENGINE=`"._MYSQL_ENGINE_."` CHARSET=utf8";
+    ) ENGINE=`" . _MYSQL_ENGINE_ . "` CHARSET=utf8";
 
 /** @noinspection PhpUndefinedConstantInspection */
-$sql[] = "CREATE TABLE IF NOT EXISTS `"._DB_PREFIX_."ning_cron_schedule`(
+$sql[] = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "ning_cron_schedule`(
         `id` int(11) NOT NULL AUTO_INCREMENT,
         `status` varchar(50) NOT NULL DEFAULT 'pending' COMMENT 'Status',
         `created_at` timestamp NULL DEFAULT NULL COMMENT 'Created At',
@@ -42,7 +42,7 @@ $sql[] = "CREATE TABLE IF NOT EXISTS `"._DB_PREFIX_."ning_cron_schedule`(
         `executed_at` timestamp NULL DEFAULT NULL COMMENT 'Executed At',
         `finished_at` timestamp NULL DEFAULT NULL COMMENT 'Finished At',
         PRIMARY KEY (`id`)
-    ) ENGINE=`"._MYSQL_ENGINE_."` CHARSET=utf8";
+    ) ENGINE=`" . _MYSQL_ENGINE_ . "` CHARSET=utf8";
 
 foreach ($sql as $query) {
     if (!Db::getInstance()->execute($query)) {

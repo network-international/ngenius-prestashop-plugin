@@ -1,8 +1,10 @@
 <?php
 
 use NGenius\Logger;
+use NGenius\CronLogger;
 use NGenius\Command;
 use NGenius\Config\Config;
+use Ngenius\NgeniusCommon\Processor\ApiProcessor;
 
 class NGeniusRedirectModuleFrontController extends ModuleFrontController
 {
@@ -16,17 +18,19 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
      */
     public function postProcess()
     {
-        $logger = new Logger();
-        $config = new Config();
-        $command = new Command();
-        $log = [];
+        $logger      = new Logger();
+        $config      = new Config();
+        $command     = new Command();
+        $log         = [];
         $log['path'] = __METHOD__;
-        $ref = $_REQUEST['ref'];
+        $ref         = $_REQUEST['ref'];
 
         $isValidRef = preg_match('/([a-z0-9]){8}-([a-z0-9]){4}-([a-z0-9]){4}-([a-z0-9]){4}-([a-z0-9]){12}$/', $ref);
 
-        if (!$isValidRef) {
-            Tools::redirect(\Tools::getHttpHost(true) . __PS_BASE_URI__.'module/ngenius/failedorder');
+        if (!$isValidRef || $config->isDebugCron()) {
+            $log['redirected_to'] = 'module/ngenius/crondebug';
+            $logger->addLog($log);
+            Tools::redirect(\Tools::getHttpHost(true) . __PS_BASE_URI__ . 'module/ngenius/crondebug');
         }
 
         $ngeniusOrder = $this->getNgeniusOrder($ref);
@@ -39,7 +43,8 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
 
         $cart = $this->context->cart;
 
-        $response = $command->getOrderStatusRequest($ref);
+        $response     = $command->getOrderStatusRequest($ref);
+        $apiProcessor = new ApiProcessor($response);
 
         $orderState = $response['_embedded']['payment'][0]['state'] ?? null;
 
@@ -51,11 +56,10 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
             $log['redirected_to'] = 'module/ngenius/failedorder';
             $logger->addLog($log);
             /** @noinspection PhpUndefinedConstantInspection */
-            Tools::redirect(\Tools::getHttpHost(true) . __PS_BASE_URI__.'module/ngenius/failedorder');
+            Tools::redirect(\Tools::getHttpHost(true) . __PS_BASE_URI__ . 'module/ngenius/failedorder');
         }
 
         if (!Order::getByCartId($cart_id)) {
-
             $this->module->validateOrder(
                 (int)$cart_id,
                 $config->getInitialStatus(),
@@ -73,11 +77,11 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
 
         $this->updateNgeniusOrderStatusToProcessing($ngeniusOrder, $order);
 
-        $order->setCurrentState((int)Configuration::get($config->getOrderStatus().'_PROCESSING'));
+        $order->setCurrentState((int)Configuration::get($config->getOrderStatus() . '_PROCESSING'));
 
-        $this->processOrder($response, $ngeniusOrder);
+        $this->processOrder($apiProcessor, $ngeniusOrder);
 
-        $redirectLink = $this->module->getOrderConfUrl($order);
+        $redirectLink         = $this->module->getOrderConfUrl($order);
         $log['redirected_to'] = $redirectLink;
         $logger->addLog($log);
         Tools::redirectLink($redirectLink);
@@ -86,168 +90,127 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
     /**
      * Process Order.
      *
-     * @param array $response
+     * @param ApiProcessor $apiProcessor
      * @param array $ngeniusOrder
      * @param int|null $cronJob
+     *
      * @return bool
      */
-    public function processOrder($response, $ngeniusOrder, $cronJob = false)
+    public function processOrder(ApiProcessor $apiProcessor, $ngeniusOrder, $cronJob = false)
     {
-        $command = new Command();
-        $config = new Config();
-        $order = Order::getByCartId($ngeniusOrder["id_cart"]);
+        $command    = new Command();
+        $config     = new Config();
+        $cronLogger = new CronLogger();
+
+        $cart_id = $ngeniusOrder['id_cart'];
+
+        if (!Order::getByCartId($cart_id)) {
+            $cart = new Cart($cart_id);
+
+            $this->module->validateOrder(
+                (int)$cart_id,
+                $config->getInitialStatus(),
+                (float)$ngeniusOrder["amount"],
+                $this->module->l($config->getModuleName(), 'validation'),
+                null,
+                [],
+                $cart->id_currency,
+                false,
+                $cart->secure_key
+            );
+        }
+
+        $order = Order::getByCartId($cart_id);
+
         $captureAmount = 0;
         $transactionId = null;
+        $response      = $apiProcessor->getResponse();
+
         if (Validate::isLoadedObject($order)) {
-            $paymentId = $this->getPaymentId($response);
-            $state = $response['_embedded']['payment'][0]['state'] ?? null;
+            $paymentId = $apiProcessor->getPaymentId();
+            $state     = $apiProcessor->getState() ?? null;
+            $action    = $response['action'];
+            $apiProcessor->processPaymentAction($action, $state);
+
+            if ($apiProcessor->isPaymentAbandoned()) {
+                $state = 'FAILED';
+            }
+
             switch ($state) {
                 case 'CAPTURED':
-                    $captureAmount = $this->getCapturedAmount($response, $ngeniusOrder['amount']);
-                    $lastTransaction = $this->getLastTransaction($response);
-                    $transactionId = $this->getTransactionId($lastTransaction);
-                    $status = $config->getOrderStatus().'_COMPLETE';
+                case 'PURCHASED':
+                    $captureAmount = $apiProcessor->getCapturedAmount();
+                    $transactionId = $apiProcessor->getTransactionId();
+                    $status        = $config->getOrderStatus() . '_COMPLETE';
                     $command->sendOrderConfirmationMail($order);
+                    if ($captureAmount === 0) {
+                        $captureAmount = $ngeniusOrder['amount'];
+                    }
                     break;
 
                 case 'AUTHORISED':
                     $command->sendOrderConfirmationMail($order);
-                    $status = $config->getOrderStatus().'_AUTHORISED';
-                    break;
-
-                case 'PURCHASED':
-                    $command->sendOrderConfirmationMail($order);
-                    $status = $config->getOrderStatus().'_COMPLETE';
+                    $status = $config->getOrderStatus() . '_AUTHORISED';
                     break;
 
                 case 'FAILED':
-                    $status = $config->getOrderStatus().'_DECLINED';
+                    $status = $config->getOrderStatus() . '_DECLINED';
                     break;
 
                 default:
-                    $status = $config->getOrderStatus().'_PENDING';
+                    $status = $config->getOrderStatus() . '_PENDING';
                     break;
             }
             if (isset($state)) {
-                if ($cronJob) {
-                    $this->updateNgeniusOrderStatusToProcessing($ngeniusOrder, $order);
-                    $order->setCurrentState((int)Configuration::get($config->getOrderStatus().'_PROCESSING'));
-                }
                 $authResponse = $response['_embedded']['payment'][0]['authResponse'] ?? null;
-                $data = [
-                    'id_payment' => $paymentId,
-                    'capture_amt' => $captureAmount,
-                    'status' => $status,
-                    'state' => $state,
-                    'reference' => $ngeniusOrder['reference'],
-                    'id_capture' => $transactionId,
+                $data         = [
+                    'id_order'      => $order->id,
+                    'id_payment'    => $paymentId,
+                    'capture_amt'   => $captureAmount,
+                    'status'        => $status,
+                    'state'         => $state,
+                    'reference'     => $ngeniusOrder['reference'],
+                    'id_capture'    => $transactionId,
                     'auth_response' => json_encode($authResponse, true),
                 ];
-                $command->updateNngeniusNetworkinternational($data);
-                $command->updatePsOrderPayment($this->getOrderPaymentRequest($response));
+                $command->updateNgeniusNetworkinternational($data);
+                $command->updatePsOrderPayment($this->getOrderPaymentRequest($apiProcessor));
                 $command->addCustomerMessage($response, $order);
                 $order->setCurrentState((int)Configuration::get($status));
+
                 return true;
             }
+        } else {
+            $command::deleteNgeniusOrder($cart_id);
+            $cronLogger->addLog("N-GENIUS: Platform order not found");
         }
-    }
 
-    /**
-     * Gets Captured Amount
-     *
-     * @param array $response
-     * @return string
-     */
-    public function getCapturedAmount($response, $orderAmount)
-    {
-        $captureAmount = 0;
-        if (isset($response['_embedded']['payment'][0]['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
-            && is_array($response['_embedded']['payment'][0]['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
-        ) {
-            foreach ($response['_embedded']['payment'][0]['_embedded'][self::NGENIUS_CAPTURE_LITERAL] as $capture) {
-                if (isset($capture['state']) && ($capture['state'] == 'SUCCESS')
-                    && isset($capture['amount']['value'])
-                ) {
-                    $captureAmount = $orderAmount;
-                }
-            }
-        }
-        return $captureAmount;
-    }
-
-    /**
-     * Gets Last Transaction
-     *
-     * @param array $response
-     * @return string
-     */
-    public function getLastTransaction($response)
-    {
-        $lastTransaction = '';
-        if (isset($response['_embedded']['payment'][0]['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
-            && is_array($response['_embedded']['payment'][0]['_embedded'][self::NGENIUS_CAPTURE_LITERAL])
-        ) {
-            $lastTransaction = end($response['_embedded']['payment'][0]['_embedded'][self::NGENIUS_CAPTURE_LITERAL]);
-        }
-        return $lastTransaction;
-    }
-
-    /**
-     * Gets payment id
-     *
-     * @param array $response
-     * @return string
-     */
-    public function getPaymentId($response)
-    {
-        $paymentId = '';
-        if (isset($response['_embedded']['payment'][0]['_id'])) {
-            $transactionIdRes = explode(":", $response['_embedded']['payment'][0]['_id']);
-            $paymentId = end($transactionIdRes);
-        }
-        return $paymentId;
-    }
-
-    /**
-     * Gets transaction Id
-     *
-     * @param array $response
-     * @return string
-     */
-    public function getTransactionId($lastTransaction)
-    {
-        $transactionId = '';
-        if (isset($lastTransaction['_links']['self']['href'])) {
-            $transactionArr = explode('/', $lastTransaction['_links']['self']['href']);
-            $transactionId = end($transactionArr);
-        } elseif ($lastTransaction['_links']['cnp:refund']['href'] ?? false) {
-            $transactionArr = explode('/', $lastTransaction['_links']['cnp:refund']['href']);
-            $transactionId = $transactionArr[count($transactionArr)-2];
-        }
-        return $transactionId;
+        return false;
     }
 
     /**
      * Gets Order Payment Request
      *
-     * @param array $response
+     * @param ApiProcessor $apiProcessor
+     *
      * @return array
      */
-    public static function getOrderPaymentRequest(array $response): array
+    public static function getOrderPaymentRequest(ApiProcessor $apiProcessor): array
     {
+        $response      = $apiProcessor->getResponse();
         $paymentMethod = $response['_embedded']['payment'][0]['paymentMethod'] ?? null;
         if (isset($response['_embedded']['payment'][0]['state'])) {
-            $transactionIdRes = explode(":", $response['_embedded']['payment'][0]['_id']);
-            $transactionId = end($transactionIdRes);
+            $transactionId = $apiProcessor->getTransactionId();
         }
+
         return [
-            'id_order' => $response['merchantOrderReference'],
-            'amount' => $response['amount']['value'],
-            'transaction_id' => $transactionId ?? null,
-            'card_number' => $paymentMethod['pan'] ?? null,
-            'card_brand' => $paymentMethod['name'] ?? null,
+            'id_order'        => $response['merchantOrderReference'],
+            'amount'          => $response['amount']['value'],
+            'transaction_id'  => $transactionId ?? null,
+            'card_number'     => $paymentMethod['pan'] ?? null,
+            'card_brand'      => $paymentMethod['name'] ?? null,
             'card_expiration' => $paymentMethod['expiry'] ?? null,
-            'card_holder' => $paymentMethod['cardholderName'] ?? null,
+            'card_holder'     => $paymentMethod['cardholderName'] ?? null,
         ];
     }
 
@@ -255,32 +218,36 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
      * Gets ngenius order by reference
      *
      * @param string $reference
+     *
      * @return array|bool
      */
     public static function getNgeniusOrder(string $reference): array|bool
     {
         $sql = new \DbQuery();
-        $sql->select('*')->from("ning_online_payment")->where('reference ="'.pSQL($reference).'"');
-        return  \Db::getInstance()->getRow($sql);
+        $sql->select('*')->from("ning_online_payment")->where('reference ="' . pSQL($reference) . '"');
+
+        return \Db::getInstance()->getRow($sql);
     }
 
     /**
      * Update Ngenius Order Status To Processing
      *
      * @param string $reference
+     *
      * @return bool
      */
     public static function updateNgeniusOrderStatusToProcessing($ngenusOrder, $order)
     {
-        $command = new Command();
-        $config = new Config();
+        $command      = new Command();
+        $config       = new Config();
         $ngeniusOrder = [
-            'status' => $config->getOrderStatus().'_PROCESSING',
+            'status'    => $config->getOrderStatus() . '_PROCESSING',
             'reference' => $ngenusOrder['reference'],
             'id_order'  => $order->id
         ];
-        $command->updateNngeniusNetworkinternational($ngeniusOrder);
+        $command->updateNgeniusNetworkinternational($ngeniusOrder);
         $command->addCustomerMessage(null, $order);
+
         return true;
     }
 }

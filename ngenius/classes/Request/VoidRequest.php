@@ -13,29 +13,35 @@ class VoidRequest
      *
      * @param array $order
      * @param array $ngenusOrder
+     *
      * @return array|bool
      */
     public function build(array $ngenusOrder): bool|array
     {
-        $config = new Config();
-        $logger = new Logger();
-        $tokenRequest = new TokenRequest();
-        $log = [];
-        $log['path'] = __METHOD__;
+        $config               = new Config();
+        $logger               = new Logger();
+        $tokenRequest         = new TokenRequest();
+        $log                  = [];
+        $log['path']          = __METHOD__;
         $log['is_configured'] = false;
-        $storeId = isset(\Context::getContext()->shop->id) ? (int)\Context::getContext()->shop->id : null;
+        $storeId              = isset(\Context::getContext()->shop->id) ? (int)\Context::getContext()->shop->id : null;
         if ($config->isComplete()) {
             $log['is_configured'] = true;
-            $data = [
-                'token' => $tokenRequest->getAccessToken(),
+            $data                 = [
+                'token'   => $tokenRequest->getAccessToken(),
                 'request' => [
-                    'data' => [],
+                    'data'   => [],
                     'method' => "PUT",
-                    'uri' => $config->getOrderVoidURL($ngenusOrder['reference'], $ngenusOrder['id_payment'], $storeId)
+                    'uri'    => $config->getOrderVoidURL(
+                        $ngenusOrder['reference'],
+                        $ngenusOrder['id_payment'],
+                        $storeId
+                    )
                 ]
             ];
-            $log['void_request'] = json_encode($data);
+            $log['void_request']  = json_encode($data);
             $logger->addLog($log);
+
             return $data;
         } else {
             return false;

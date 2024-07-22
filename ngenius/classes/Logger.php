@@ -10,6 +10,7 @@ class Logger
      * add ngenius log
      *
      * @param string $$message
+     *
      * @return void
      */
     public function addLog($message): void

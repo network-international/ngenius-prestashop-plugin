@@ -5,11 +5,12 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /** @noinspection PhpUndefinedConstantInspection */
-require_once _PS_MODULE_DIR_.'/ngenius/vendor/autoload.php';
+require_once _PS_MODULE_DIR_ . '/ngenius/vendor/autoload.php';
 
 use NGenius\Command;
 use NGenius\Config\Config;
 use NGenius\Logger;
+use Ngenius\NgeniusCommon\Formatter\ValueFormatter;
 use PrestaShop\PrestaShop\Adapter\StockManager;
 use PrestaShop\PrestaShop\Core\Payment\PaymentOption;
 
@@ -17,11 +18,11 @@ class Ngenius extends PaymentModule
 {
     public function __construct()
     {
-        $config = new Config();
-        $this->name = 'ngenius';
-        $this->tab = 'payments_gateways';
-        $this->version = '1.0.2';
-        $this->author = 'Network International';
+        $config              = new Config();
+        $this->name          = 'ngenius';
+        $this->tab           = 'payments_gateways';
+        $this->version       = '1.1.0';
+        $this->author        = 'Network International';
         $this->need_instance = 1;
 
         /**
@@ -49,31 +50,33 @@ class Ngenius extends PaymentModule
         $config = new Config();
         if (!extension_loaded('curl')) {
             $this->_errors[] = $this->l('You have to enable the cURL extension on your server to install this module');
+
             return false;
         }
 
-        include_once(dirname(__FILE__).'/sql/install.php');
+        include_once(dirname(__FILE__) . '/sql/install.php');
 
         Configuration::updateValue('DISPLAY_NAME', $config->getModuleDisplayName());
 
         return parent::install() &&
-            $this->registerHook('displayHeader') &&
-            $this->registerHook('displayBackOfficeHeader') &&
-            $this->registerHook('paymentOptions') &&
-            $this->registerHook('actionOrderStatusUpdate') &&
-            $this->registerHook('displayBackOfficeOrderActions') &&
-            $this->registerHook('displayAdminOrder') &&
-            $this->registerHook('actionEmailSendBefore') &&
-            $this->createOrderState() &&
-            $this->addNGeniusCronToken();
+               $this->registerHook('displayHeader') &&
+               $this->registerHook('displayBackOfficeHeader') &&
+               $this->registerHook('paymentOptions') &&
+               $this->registerHook('actionOrderStatusUpdate') &&
+               $this->registerHook('displayBackOfficeOrderActions') &&
+               $this->registerHook('displayAdminOrder') &&
+               $this->registerHook('actionEmailSendBefore') &&
+               $this->createOrderState() &&
+               $this->addNGeniusCronToken();
     }
 
     public function uninstall()
     {
-        include_once(dirname(__FILE__).'/sql/uninstall.php');
+        include_once(dirname(__FILE__) . '/sql/uninstall.php');
 
         $this->deleteTab();
         $this->deleteNGeniusConfigurations();
+
         return parent::uninstall();
     }
 
@@ -86,20 +89,22 @@ class Ngenius extends PaymentModule
     {
         $command = new Command();
         if ($params['template'] === 'order_conf') {
-            $orderId = \Order::getOrderByCartId($params['cart']->id);
+            $orderId               = \Order::getOrderByCartId($params['cart']->id);
             $orderConfirmationData = $command->getNgeniusOrderEmailContent($orderId);
             if ($orderConfirmationData) {
                 return true;
             } else {
-                $data = $params['templateVars'] ?? '';
+                $data     = $params['templateVars'] ?? '';
                 $mailData = array(
-                    'id_order' => (int) $orderId,
-                    'data' => serialize($data),
+                    'id_order' => (int)$orderId,
+                    'data'     => serialize($data),
                 );
                 $command->addNgeniusOrderEmailContent($mailData);
+
                 return false;
             }
         }
+
         return true;
     }
 
@@ -112,17 +117,18 @@ class Ngenius extends PaymentModule
     {
         $output = null;
         if (Tools::isSubmit('submit' . $this->name)) {
-            $DISPLAY_NAME = strval(Tools::getValue('DISPLAY_NAME'));
-            $ENVIRONMENT = strval(Tools::getValue('ENVIRONMENT'));
-            $PAYMENT_ACTION = strval(Tools::getValue('PAYMENT_ACTION'));
-            $UAT_API_URL = strval(Tools::getValue('UAT_API_URL'));
-            $LIVE_API_URL = strval(Tools::getValue('LIVE_API_URL'));
+            $DISPLAY_NAME        = strval(Tools::getValue('DISPLAY_NAME'));
+            $ENVIRONMENT         = strval(Tools::getValue('ENVIRONMENT'));
+            $PAYMENT_ACTION      = strval(Tools::getValue('PAYMENT_ACTION'));
+            $UAT_API_URL         = strval(Tools::getValue('UAT_API_URL'));
+            $LIVE_API_URL        = strval(Tools::getValue('LIVE_API_URL'));
             $OUTLET_REFERENCE_ID = strval(Tools::getValue('OUTLET_REFERENCE_ID'));
-            $API_KEY = strval(Tools::getValue('API_KEY'));
-            $HTTP_VERSION = strval(Tools::getValue('HTTP_VERSION'));
-            $DEBUG = strval(Tools::getValue('DEBUG'));
-            $NING_CRON_SCHEDULE = strval(Tools::getValue('NING_CRON_SCHEDULE'));
-            $CURRENCY_OUTLETID =    json_encode(Tools::getValue('CURRENCY_OUTLETID'));
+            $API_KEY             = strval(Tools::getValue('API_KEY'));
+            $HTTP_VERSION        = strval(Tools::getValue('HTTP_VERSION'));
+            $DEBUG               = strval(Tools::getValue('DEBUG'));
+            $DEBUG_CRON          = strval(Tools::getValue('DEBUG_CRON'));
+            $NING_CRON_SCHEDULE  = strval(Tools::getValue('NING_CRON_SCHEDULE'));
+            $CURRENCY_OUTLETID   = json_encode(Tools::getValue('CURRENCY_OUTLETID'));
 
             if (!$DISPLAY_NAME || empty($DISPLAY_NAME) || !Validate::isGenericName($DISPLAY_NAME)) {
                 $output .= $this->displayError($this->l('Invalid name for payment gateway'));
@@ -140,24 +146,27 @@ class Ngenius extends PaymentModule
                 Configuration::updateValue('API_KEY', $API_KEY);
                 Configuration::updateValue('HTTP_VERSION', $HTTP_VERSION);
                 Configuration::updateValue('DEBUG', $DEBUG);
+                Configuration::updateValue('DEBUG_CRON', $DEBUG_CRON);
                 Configuration::updateValue('NING_CRON_SCHEDULE', $NING_CRON_SCHEDULE);
                 Configuration::updateValue('CURRENCY_OUTLETID', $CURRENCY_OUTLETID);
 
                 $output .= $this->displayConfirmation($this->l('Settings updated'));
             }
         }
+
         return $output . $this->displayForm();
     }
 
     public function validateCurrencyOutletid($encCurOut): bool
     {
-        $flag = true;
+        $flag      = true;
         $decCurOut = json_decode($encCurOut, true);
         foreach ($decCurOut as $value) {
             if (empty($value['CURRENCY']) || empty($value['OUTLET_ID'])) {
                 $flag = false;
             }
         }
+
         return $flag;
     }
 
@@ -170,31 +179,31 @@ class Ngenius extends PaymentModule
     public function displayForm(): string
     {
         // Get default language
-        $defaultLang = (int) Configuration::get('PS_LANG_DEFAULT');
+        $defaultLang = (int)Configuration::get('PS_LANG_DEFAULT');
 
         $helper = new HelperForm();
         $config = new Config();
 
         // Module, token and currentIndex
-        $helper->module = $this;
+        $helper->module          = $this;
         $helper->name_controller = $this->name;
-        $helper->token = Tools::getAdminTokenLite('AdminModules');
-        $helper->currentIndex = AdminController::$currentIndex . '&configure=' . $this->name;
+        $helper->token           = Tools::getAdminTokenLite('AdminModules');
+        $helper->currentIndex    = AdminController::$currentIndex . '&configure=' . $this->name;
 
         // Language
-        $helper->default_form_language = $defaultLang;
+        $helper->default_form_language    = $defaultLang;
         $helper->allow_employee_form_lang = $defaultLang;
 
         // Title and toolbar
-        $helper->title = $this->displayName;
-        $helper->show_toolbar = true;        // false -> remove toolbar
+        $helper->title          = $this->displayName;
+        $helper->show_toolbar   = true;        // false -> remove toolbar
         $helper->toolbar_scroll = true;      // yes - > Toolbar is always visible on the top of the screen.
-        $helper->submit_action = 'submit' . $this->name;
-        $helper->toolbar_btn = [
+        $helper->submit_action  = 'submit' . $this->name;
+        $helper->toolbar_btn    = [
             'save' => [
                 'desc' => $this->l('Save'),
                 'href' => AdminController::$currentIndex . '&configure=' . $this->name . '&save' . $this->name .
-                    '&token=' . Tools::getAdminTokenLite('AdminModules'),
+                          '&token=' . Tools::getAdminTokenLite('AdminModules'),
             ],
             'back' => [
                 'href' => AdminController::$currentIndex . '&token=' . Tools::getAdminTokenLite('AdminModules'),
@@ -203,16 +212,17 @@ class Ngenius extends PaymentModule
         ];
 
         // Load current value
-        $helper->fields_value['DISPLAY_NAME'] = Configuration::get('DISPLAY_NAME');
-        $helper->fields_value['ENVIRONMENT'] = Configuration::get('ENVIRONMENT');
-        $helper->fields_value['PAYMENT_ACTION'] = Configuration::get('PAYMENT_ACTION');
-        $helper->fields_value['API_KEY'] = Configuration::get('API_KEY');
-        $helper->fields_value['UAT_API_URL'] = Configuration::get('UAT_API_URL');
-        $helper->fields_value['LIVE_API_URL'] = Configuration::get('LIVE_API_URL');
-        $helper->fields_value['HTTP_VERSION'] = Configuration::get('HTTP_VERSION');
-        $helper->fields_value['DEBUG'] = Configuration::get('DEBUG');
+        $helper->fields_value['DISPLAY_NAME']       = Configuration::get('DISPLAY_NAME');
+        $helper->fields_value['ENVIRONMENT']        = Configuration::get('ENVIRONMENT');
+        $helper->fields_value['PAYMENT_ACTION']     = Configuration::get('PAYMENT_ACTION');
+        $helper->fields_value['API_KEY']            = Configuration::get('API_KEY');
+        $helper->fields_value['UAT_API_URL']        = Configuration::get('UAT_API_URL');
+        $helper->fields_value['LIVE_API_URL']       = Configuration::get('LIVE_API_URL');
+        $helper->fields_value['HTTP_VERSION']       = Configuration::get('HTTP_VERSION');
+        $helper->fields_value['DEBUG']              = Configuration::get('DEBUG');
+        $helper->fields_value['DEBUG_CRON']         = Configuration::get('DEBUG_CRON');
         $helper->fields_value['NING_CRON_SCHEDULE'] = Configuration::get('NING_CRON_SCHEDULE');
-        $helper->fields_value['CURRENCY_OUTLETID'] = Configuration::get('CURRENCY_OUTLETID');
+        $helper->fields_value['CURRENCY_OUTLETID']  = Configuration::get('CURRENCY_OUTLETID');
 
         $currencyOutletid = Configuration::get('CURRENCY_OUTLETID');
         if (empty($currencyOutletid)) {
@@ -223,12 +233,15 @@ class Ngenius extends PaymentModule
 
         /** @noinspection PhpUndefinedConstantInspection */
         $this->context->smarty->assign([
-            'config'      => $helper->fields_value,
-            'token'       => Tools::getAdminTokenLite('AdminModules'),
-            'currencyOutletid' => json_decode($currencyOutletid, true),
-            'moduleName' => $config->getModuleName(),
-            'url' => \Tools::getHttpHost(true) . __PS_BASE_URI__.'module/ngenius/cron?token='.$token,
-        ]);
+                                           'config'           => $helper->fields_value,
+                                           'token'            => Tools::getAdminTokenLite('AdminModules'),
+                                           'currencyOutletid' => json_decode($currencyOutletid, true),
+                                           'moduleName'       => $config->getModuleName(),
+                                           'url'              => \Tools::getHttpHost(
+                                                   true
+                                               ) . __PS_BASE_URI__ . 'module/ngenius/cron?token=' . $token,
+                                       ]);
+
         return $this->display(__FILE__, 'views/templates/admin/configuration.tpl');
     }
 
@@ -238,8 +251,8 @@ class Ngenius extends PaymentModule
     public function hookDisplayBackOfficeHeader(): void
     {
         if (Tools::getValue('module_name') == $this->name) {
-            $this->context->controller->addJS($this->_path.'views/js/back.js');
-            $this->context->controller->addCSS($this->_path.'views/css/back.css');
+            $this->context->controller->addJS($this->_path . 'views/js/back.js');
+            $this->context->controller->addCSS($this->_path . 'views/css/back.css');
         }
     }
 
@@ -248,8 +261,8 @@ class Ngenius extends PaymentModule
      */
     public function hookDisplayHeader(): void
     {
-        $this->context->controller->addJS($this->_path.'/views/js/front.js');
-        $this->context->controller->addCSS($this->_path.'/views/css/front.css');
+        $this->context->controller->addJS($this->_path . '/views/js/front.js');
+        $this->context->controller->addCSS($this->_path . '/views/css/front.css');
     }
 
     /**
@@ -270,7 +283,7 @@ class Ngenius extends PaymentModule
         }
         $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $option->setCallToActionText($this->l($config->getDisplayName()))
-            ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true));
+               ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true));
 
         return [
             $option
@@ -279,7 +292,7 @@ class Ngenius extends PaymentModule
 
     public function checkCurrency($cart): bool
     {
-        $currency_order = new Currency($cart->id_currency);
+        $currency_order    = new Currency($cart->id_currency);
         $currencies_module = $this->getCurrency($cart->id_currency);
         if (is_array($currencies_module)) {
             foreach ($currencies_module as $currency_module) {
@@ -288,6 +301,7 @@ class Ngenius extends PaymentModule
                 }
             }
         }
+
         return false;
     }
 
@@ -303,10 +317,10 @@ class Ngenius extends PaymentModule
             true,
             $order->id_lang,
             array(
-                'id_cart' => $order->id_cart,
+                'id_cart'   => $order->id_cart,
                 'id_module' => $this->id,
-                'id_order' => $order->id,
-                'key' => $order->secure_key
+                'id_order'  => $order->id,
+                'key'       => $order->secure_key
             )
         );
     }
@@ -315,6 +329,7 @@ class Ngenius extends PaymentModule
      * Order Status Update Hook.
      *
      * @param array $params
+     *
      * @return bool|void;
      * @throws Exception
      */
@@ -329,38 +344,38 @@ class Ngenius extends PaymentModule
             return true;
         }
 
-        $order = new \Order((int)$params['id_order']);
+        $order   = new \Order((int)$params['id_order']);
         $command = new Command();
-        $config = new Config();
-        $status = $config->getOrderStatus();
+        $config  = new Config();
+        $status  = $config->getOrderStatus();
         if ($this->validateNgeniusOrderSatus($params)) {
             if (!empty($params['id_order'])
-                &&  !empty($params['newOrderStatus'])
+                && !empty($params['newOrderStatus'])
                 && Validate::isLoadedObject($params['newOrderStatus'])
             ) {
                 $statusFlag = false;
                 if (
-                    $params['newOrderStatus']->id == \Configuration::get($status.'_FULLY_CAPTURED')
+                    $params['newOrderStatus']->id == \Configuration::get($status . '_FULLY_CAPTURED')
                     && Validate::isLoadedObject($order)
                 ) {
                     if ($_SESSION['ngenius_fully_captured'] == 'true') {
                         $_SESSION['ngenius_fully_captured'] = null;
-                        $statusFlag = true;
+                        $statusFlag                         = true;
                     } else {
                         $this->invalidOrderStatus($order->id);
                     }
                 } elseif (
-                    $params['newOrderStatus']->id == \Configuration::get($status.'_AUTH_REVERSED')
+                    $params['newOrderStatus']->id == \Configuration::get($status . '_AUTH_REVERSED')
                     && Validate::isLoadedObject($order)
                 ) {
                     if ($_SESSION['ngenius_auth_reversed'] == 'true') {
                         $_SESSION['ngenius_auth_reversed'] = null;
-                        $statusFlag = true;
+                        $statusFlag                        = true;
                     } else {
                         $this->invalidOrderStatus($order->id);
                     }
-                } elseif ($params['newOrderStatus']->id == \Configuration::get($status.'_FULLY_REFUNDED')
-                    && Validate::isLoadedObject($order)
+                } elseif ($params['newOrderStatus']->id == \Configuration::get($status . '_FULLY_REFUNDED')
+                          && Validate::isLoadedObject($order)
                 ) {
                     if ($_SESSION['ngenius_fully_refund'] == 'true') {
                         $_SESSION['ngenius_fully_refund'] = null;
@@ -371,7 +386,7 @@ class Ngenius extends PaymentModule
                         $this->invalidOrderStatus($order->id);
                     }
                 } elseif (
-                    $params['newOrderStatus']->id == \Configuration::get($status.'_PARTIALLY_REFUNDED')
+                    $params['newOrderStatus']->id == \Configuration::get($status . '_PARTIALLY_REFUNDED')
                     && Validate::isLoadedObject($order)
                 ) {
                     if ($_SESSION['ngenius_partial_refund'] == 'true') {
@@ -384,6 +399,7 @@ class Ngenius extends PaymentModule
                 } else {
                     $statusFlag = true;
                 }
+
                 return $statusFlag;
             }
         } else {
@@ -400,12 +416,13 @@ class Ngenius extends PaymentModule
      *
      * @param $message
      * @param bool $isError
+     *
      * @return void
      */
     public function addNgeniusFlashMessage($message, bool $isError = false): void
     {
         $router = $this->get('router');
-        $type = $isError ? "error" : "success";
+        $type   = $isError ? "error" : "success";
 
         $this->get('session')->getFlashBag()->add($type, $message);
     }
@@ -415,6 +432,7 @@ class Ngenius extends PaymentModule
      * Validate Ngenius Order Status.
      *
      * @param array $params
+     *
      * @return bool;
      */
 
@@ -422,20 +440,21 @@ class Ngenius extends PaymentModule
     {
         $config = new Config();
         $status = $config->getOrderStatus();
-        $order = new \Order((int)$params['id_order']);
+        $order  = new \Order((int)$params['id_order']);
         if (!empty($order->module)
             && $order->module == $this->name
             && !empty($params['newOrderStatus'])
-            &&  Validate::isLoadedObject($params['newOrderStatus'])
+            && Validate::isLoadedObject($params['newOrderStatus'])
         ) {
-            if ($params['newOrderStatus']->id == \Configuration::get($status.'_PENDING')
-                || $params['newOrderStatus']->id == \Configuration::get($status.'_PROCESSING')
-                || $params['newOrderStatus']->id == \Configuration::get($status.'_FAILED')
-                || $params['newOrderStatus']->id == \Configuration::get($status.'_DECLINED')
-                || $params['newOrderStatus']->id == \Configuration::get($status.'_COMPLETE')
-                || $params['newOrderStatus']->id == \Configuration::get($status.'_AUTHORISED')
+            if ($params['newOrderStatus']->id == \Configuration::get($status . '_PENDING')
+                || $params['newOrderStatus']->id == \Configuration::get($status . '_PROCESSING')
+                || $params['newOrderStatus']->id == \Configuration::get($status . '_FAILED')
+                || $params['newOrderStatus']->id == \Configuration::get($status . '_DECLINED')
+                || $params['newOrderStatus']->id == \Configuration::get($status . '_COMPLETE')
+                || $params['newOrderStatus']->id == \Configuration::get($status . '_AUTHORISED')
             ) {
                 $_SESSION['validate_order_status'] = null;
+
                 return false;
             } else {
                 return true;
@@ -463,11 +482,11 @@ class Ngenius extends PaymentModule
      * Display Back Office Order Actions Hook.
      *
      * @param array $params
+     *
      * @return string|void;
      */
     public function hookDisplayBackOfficeOrderActions(array $params)
     {
-
         if (!$this->active) {
             return false;
         }
@@ -489,7 +508,8 @@ class Ngenius extends PaymentModule
         }
 
         $_SESSION['ngenius_flashes'] = null;
-        $_SESSION['ngenius_errors'] = null;
+        $_SESSION['ngenius_errors']  = null;
+
         return $message;
     }
 
@@ -497,22 +517,25 @@ class Ngenius extends PaymentModule
      * Display Admin Order Hook.
      *
      * @param array $params
+     *
      * @return string|void;
      * @throws Exception
      */
     public function hookDisplayAdminOrder(array $params)
     {
-        if (! $this->active) {
+        if (!$this->active) {
             return false;
         }
 
         $id_order = (int)$params['id_order'];
-        $config = new Config();
-        $order = new \Order($id_order);
+        $config   = new Config();
+        $order    = new \Order($id_order);
         if ($order->module == $this->name) {
-
-            $command = new Command();
+            $command      = new Command();
             $ngeniusOrder = $command->getNgeniusOrder($id_order);
+            ValueFormatter::formatCurrencyDecimals($ngeniusOrder['currency'], $ngeniusOrder['amount']);
+            ValueFormatter::formatCurrencyDecimals($ngeniusOrder['currency'], $ngeniusOrder['capture_amt']);
+            ValueFormatter::formatCurrencyDecimals($ngeniusOrder['currency'], $ngeniusOrder['refunded_amt']);
             $formAction = $this->context->link->getAdminLink(
                 'AdminOrders',
                 true,
@@ -524,7 +547,6 @@ class Ngenius extends PaymentModule
             $authorizedOrder = $command->getAuthorizationTransaction($ngeniusOrder);
 
             if ($authorizedOrder) {
-
                 if (Tools::isSubmit('fullyCaptureNgenius')) {
                     // fully capture
                     $captureAttempt = $command->capture($authorizedOrder);
@@ -532,7 +554,9 @@ class Ngenius extends PaymentModule
                     if ($captureAttempt) {
                         $command->addCustomerMessage(json_decode($captureAttempt, true), $order);
                         $this->addNgeniusFlashMessage('You have Successfully Captured!');
-                        $order->setCurrentState((int)\Configuration::get($config->getOrderStatus().'_FULLY_CAPTURED'));
+                        $order->setCurrentState(
+                            (int)\Configuration::get($config->getOrderStatus() . '_FULLY_CAPTURED')
+                        );
                     } else {
                         $this->addNgeniusFlashMessage('You are unsuccessful with the capture.');
                     }
@@ -544,7 +568,7 @@ class Ngenius extends PaymentModule
                     if ($voidAttempt) {
                         $command->addCustomerMessage(json_decode($voidAttempt, true), $order);
                         $this->addNgeniusFlashMessage('You have successfully reversed the authorization!');
-                        $order->setCurrentState((int)\Configuration::get($config->getOrderStatus().'_AUTH_REVERSED'));
+                        $order->setCurrentState((int)\Configuration::get($config->getOrderStatus() . '_AUTH_REVERSED'));
                     } else {
                         $this->addNgeniusFlashMessage('You are unsuccessful with reversing this authorization.');
                     }
@@ -558,11 +582,12 @@ class Ngenius extends PaymentModule
 
             $refundedOrder = [];
 
-            if (Tools::isSubmit('partialRefundNgenius')) {
+            $hideRefundBtn = false;
 
-                if (Tools::getValue('refundAmount') != '' ||  Tools::getValue('refundAmount') != null) {
+            if (Tools::isSubmit('partialRefundNgenius')) {
+                if (Tools::getValue('refundAmount') != '' || Tools::getValue('refundAmount') != null) {
                     $refundedOrder['amount'] = (float)Tools::getValue('refundAmount');
-                    $ngeniusOrder['amount'] = $refundedOrder['amount'];
+                    $ngeniusOrder['amount']  = $refundedOrder['amount'];
 
                     $refundAttempt = $command->refund($ngeniusOrder);
 
@@ -570,9 +595,9 @@ class Ngenius extends PaymentModule
                         $command->addCustomerMessage(json_decode($refundAttempt, true), $order);
 
                         if (isset($_SESSION['ngenius_fully_refund']) && $_SESSION['ngenius_fully_refund'] === 'true') {
-                            $orderStatus = $config->getOrderStatus().'_FULLY_REFUNDED';
+                            $orderStatus = $config->getOrderStatus() . '_FULLY_REFUNDED';
                         } else {
-                            $orderStatus = $config->getOrderStatus().'_PARTIALLY_REFUNDED';
+                            $orderStatus = $config->getOrderStatus() . '_PARTIALLY_REFUNDED';
                         }
 
                         $order->setCurrentState((int)\Configuration::get($orderStatus));
@@ -586,17 +611,24 @@ class Ngenius extends PaymentModule
                 $totalRefunded = $ngeniusOrder['capture_amt'];
             }
 
+            // Hide refund button
+            if ($ngeniusOrder['amount'] === $ngeniusOrder['refunded_amt']) {
+                $hideRefundBtn = true;
+            }
+
             $logger = new Logger();
             $logger->addLog($ngeniusOrder);
 
             $this->context->smarty->assign([
-                'ngeniusOrder'      => $ngeniusOrder,
-                'authorizedOrder'   => $authorizedOrder,
-                'refundedOrder'     => $refundedOrder,
-                'formAction'        => $formAction,
-                'totalRefunded'     => $totalRefunded,
-                'moduleDisplayName' => $config->getModuleDisplayName(),
-            ]);
+                                               'ngeniusOrder'      => $ngeniusOrder,
+                                               'authorizedOrder'   => $authorizedOrder,
+                                               'refundedOrder'     => $refundedOrder,
+                                               'formAction'        => $formAction,
+                                               'totalRefunded'     => $totalRefunded,
+                                               'moduleDisplayName' => $config->getModuleDisplayName(),
+                                               'hideRefundBtn'     => $hideRefundBtn,
+                                           ]);
+
             return $this->display(__FILE__, 'views/templates/admin/payment.tpl');
         }
     }
@@ -611,19 +643,20 @@ class Ngenius extends PaymentModule
     {
         $config = new Config();
         if (!\Tab::getIdFromClassName('AdminNgeniusReports')) {
-            $tab = new \Tab();
+            $tab   = new \Tab();
             $langs = \Language::getLanguages(false);
             foreach ($langs as $l) {
-                $tab->name[$l['id_lang']] = $this->l($config->getModuleName().' Reports');
+                $tab->name[$l['id_lang']] = $this->l($config->getModuleName() . ' Reports');
             }
             $tab->class_name = 'AdminNgeniusReports';
-            $tab->id_parent = \Tab::getIdFromClassName('SELL');
-            $tab->module = $this->name;
-            $tab->icon = 'payment';
+            $tab->id_parent  = \Tab::getIdFromClassName('SELL');
+            $tab->module     = $this->name;
+            $tab->icon       = 'payment';
             if ($tab->add()) {
                 return true;
             }
         }
+
         return true;
     }
 
@@ -636,6 +669,7 @@ class Ngenius extends PaymentModule
     public function addNGeniusCronToken(): bool
     {
         \Configuration::updateValue('NING_CRON_TOKEN', bin2hex(random_bytes(16)));
+
         return true;
     }
 
@@ -643,9 +677,9 @@ class Ngenius extends PaymentModule
     {
         foreach ($this->getNgeniusOrderStatus() as $state) {
             $orderStateExist = false;
-            $status_name = $state['status'];
-            $orderStateId = \Configuration::get($status_name);
-            $description = $state['label'];
+            $status_name     = $state['status'];
+            $orderStateId    = \Configuration::get($status_name);
+            $description     = $state['label'];
             // save data to sorder_state_lang table
             if ($orderStateId) {
                 $orderState = new OrderState($orderStateId);
@@ -653,13 +687,13 @@ class Ngenius extends PaymentModule
                     $orderStateExist = true;
                 }
             } else {
-                $query = 'SELECT os.`id_order_state` '.
-                    'FROM `%1$sorder_state_lang` osl '.
-                    'LEFT JOIN `%1$sorder_state` os '.
-                    'ON osl.`id_order_state`=os.`id_order_state` '.
-                    'WHERE osl.`name`="%2$s" AND os.`deleted`=0';
+                $query = 'SELECT os.`id_order_state` ' .
+                         'FROM `%1$sorder_state_lang` osl ' .
+                         'LEFT JOIN `%1$sorder_state` os ' .
+                         'ON osl.`id_order_state`=os.`id_order_state` ' .
+                         'WHERE osl.`name`="%2$s" AND os.`deleted`=0';
                 /** @noinspection PhpUndefinedConstantInspection */
-                $orderStateId =  \Db::getInstance()->getValue(sprintf($query, _DB_PREFIX_, $description));
+                $orderStateId = \Db::getInstance()->getValue(sprintf($query, _DB_PREFIX_, $description));
                 if ($orderStateId) {
                     \Configuration::updateValue($status_name, $orderStateId);
                     $orderStateExist = true;
@@ -667,37 +701,38 @@ class Ngenius extends PaymentModule
             }
 
             if (!$orderStateExist) {
-                $languages = \Language::getLanguages(false);
+                $languages  = \Language::getLanguages(false);
                 $orderState = new \OrderState();
                 foreach ($languages as $lang) {
                     $orderState->name[$lang['id_lang']] = $description;
                 }
 
-                $orderState->send_email = $state['send_email'];
-                $orderState->template = $state['template'];
-                $orderState->invoice = $state['invoice'];
-                $orderState->color = $state['color'];
-                $orderState->unremovable = 1;
-                $orderState->logable = 0;
-                $orderState->delivery = $state['delivery'];
-                $orderState->hidden = 0;
-                $orderState->module_name = $this->name;
-                $orderState->shipped = $state['shipped'];
-                $orderState->paid = 0;
-                $orderState->pdf_invoice = $state['pdf_invoice'];
+                $orderState->send_email   = $state['send_email'];
+                $orderState->template     = $state['template'];
+                $orderState->invoice      = $state['invoice'];
+                $orderState->color        = $state['color'];
+                $orderState->unremovable  = 1;
+                $orderState->logable      = 0;
+                $orderState->delivery     = $state['delivery'];
+                $orderState->hidden       = 0;
+                $orderState->module_name  = $this->name;
+                $orderState->shipped      = $state['shipped'];
+                $orderState->paid         = 0;
+                $orderState->pdf_invoice  = $state['pdf_invoice'];
                 $orderState->pdf_delivery = $state['pdf_delivery'];
-                $orderState->deleted = 0;
+                $orderState->deleted      = 0;
 
                 if ($orderState->add()) {
                     \Configuration::updateValue($status_name, $orderState->id);
                     $orderStateExist = true;
                 }
             }
-            $file = $this->getLocalPath().'views/img/order_state.gif';
+            $file = $this->getLocalPath() . 'views/img/order_state.gif';
             /** @noinspection PhpUndefinedConstantInspection */
-            $newfile = _PS_IMG_DIR_.'os/' . $orderState->id . '.gif';
+            $newfile = _PS_IMG_DIR_ . 'os/' . $orderState->id . '.gif';
             copy($file, $newfile);
         }
+
         return true;
     }
 
@@ -716,6 +751,7 @@ class Ngenius extends PaymentModule
                 return true;
             }
         }
+
         return true;
     }
 
@@ -734,6 +770,7 @@ class Ngenius extends PaymentModule
         \Configuration::updateValue('NING_CRON_TOKEN', null);
         \Configuration::updateValue('CURRENCY_OUTLETID', null);
         \Configuration::updateValue('NING_CRON_SCHEDULE', null);
+
         return true;
     }
 
@@ -747,126 +784,127 @@ class Ngenius extends PaymentModule
     {
         $config = new Config();
         $status = $config->getOrderStatus();
-        $label = $config->getOrderStatusLabel();
+        $label  = $config->getOrderStatusLabel();
+
         return [
             [
-                'status' => $status.'_PENDING',
-                'label' => $label.' Pending',
-                'invoice' => 0,
-                'send_email' => 0,
-                'template' => '',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#4169E1',
-                'pdf_invoice' => 0,
+                'status'       => $status . '_PENDING',
+                'label'        => $label . ' Pending',
+                'invoice'      => 0,
+                'send_email'   => 0,
+                'template'     => '',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#4169E1',
+                'pdf_invoice'  => 0,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_PROCESSING',
-                'label' => $label.' Processing',
-                'invoice' => 0,
-                'send_email' => 0,
-                'template' => '',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#32CD32',
-                'pdf_invoice' => 0,
+                'status'       => $status . '_PROCESSING',
+                'label'        => $label . ' Processing',
+                'invoice'      => 0,
+                'send_email'   => 0,
+                'template'     => '',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#32CD32',
+                'pdf_invoice'  => 0,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_FAILED',
-                'label' => $label.' Failed',
-                'invoice' => 0,
-                'send_email' => 0,
-                'template' => '',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#8f0621',
-                'pdf_invoice' => 0,
+                'status'       => $status . '_FAILED',
+                'label'        => $label . ' Failed',
+                'invoice'      => 0,
+                'send_email'   => 0,
+                'template'     => '',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#8f0621',
+                'pdf_invoice'  => 0,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_DECLINED',
-                'label' => $label.' Declined',
-                'invoice' => 0,
-                'send_email' => 0,
-                'template' => '',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#F2886D',
-                'pdf_invoice' => 0,
+                'status'       => $status . '_DECLINED',
+                'label'        => $label . ' Declined',
+                'invoice'      => 0,
+                'send_email'   => 0,
+                'template'     => '',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#F2886D',
+                'pdf_invoice'  => 0,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_COMPLETE',
-                'label' => $label.' Complete',
-                'invoice' => 1,
-                'send_email' => 1,
-                'template' => 'payment',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#108510',
-                'pdf_invoice' => 1,
+                'status'       => $status . '_COMPLETE',
+                'label'        => $label . ' Complete',
+                'invoice'      => 1,
+                'send_email'   => 1,
+                'template'     => 'payment',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#108510',
+                'pdf_invoice'  => 1,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_AUTHORISED',
-                'label' => $label.' Authorised',
-                'invoice' => 0,
-                'send_email' => 0,
-                'template' => '',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#FF8C00',
-                'pdf_invoice' => 0,
+                'status'       => $status . '_AUTHORISED',
+                'label'        => $label . ' Authorised',
+                'invoice'      => 0,
+                'send_email'   => 0,
+                'template'     => '',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#FF8C00',
+                'pdf_invoice'  => 0,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_FULLY_CAPTURED',
-                'label' => $label.' Fully Captured',
-                'invoice' => 1,
-                'send_email' => 1,
-                'template' => 'payment',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#108510',
-                'pdf_invoice' => 1,
+                'status'       => $status . '_FULLY_CAPTURED',
+                'label'        => $label . ' Fully Captured',
+                'invoice'      => 1,
+                'send_email'   => 1,
+                'template'     => 'payment',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#108510',
+                'pdf_invoice'  => 1,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_AUTH_REVERSED',
-                'label' => $label.' Auth Reversed',
-                'invoice' => 0,
-                'send_email' => 0,
-                'template' => '',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#DC143C',
-                'pdf_invoice' => 0,
+                'status'       => $status . '_AUTH_REVERSED',
+                'label'        => $label . ' Auth Reversed',
+                'invoice'      => 0,
+                'send_email'   => 0,
+                'template'     => '',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#DC143C',
+                'pdf_invoice'  => 0,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_FULLY_REFUNDED',
-                'label' => $label.' Fully Refunded',
-                'invoice' => 0,
-                'send_email' => 1,
-                'template' => 'refund',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#ec2e15',
-                'pdf_invoice' => 0,
+                'status'       => $status . '_FULLY_REFUNDED',
+                'label'        => $label . ' Fully Refunded',
+                'invoice'      => 0,
+                'send_email'   => 1,
+                'template'     => 'refund',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#ec2e15',
+                'pdf_invoice'  => 0,
                 'pdf_delivery' => 0,
             ],
             [
-                'status' => $status.'_PARTIALLY_REFUNDED',
-                'label' => $label.' Partially Refunded',
-                'invoice' => 0,
-                'send_email' => 1,
-                'template' => 'refund',
-                'delivery' => 0,
-                'shipped' => 0,
-                'color' => '#ec2e15',
-                'pdf_invoice' => 0,
+                'status'       => $status . '_PARTIALLY_REFUNDED',
+                'label'        => $label . ' Partially Refunded',
+                'invoice'      => 0,
+                'send_email'   => 1,
+                'template'     => 'refund',
+                'delivery'     => 0,
+                'shipped'      => 0,
+                'color'        => '#ec2e15',
+                'pdf_invoice'  => 0,
                 'pdf_delivery' => 0,
             ],
         ];
@@ -876,14 +914,15 @@ class Ngenius extends PaymentModule
      * Reinject Quantity to StockAvailable
      *
      * @param int $orderId
+     *
      * @return void
      */
     public function reinjectQuantity(int $orderId): void
     {
-        $command = new Command();
+        $command    = new Command();
         $orderItems = \OrderDetail::getList((int)$orderId);
         foreach ($orderItems as $orderItem) {
-            $order_detail = $command->getOrderDetailsCore((int) $orderItem['id_order_detail']);
+            $order_detail = $command->getOrderDetailsCore((int)$orderItem['id_order_detail']);
             $order_detail = json_decode(json_encode($order_detail));
             $this->reinjectQuantityCore($order_detail, $orderItem['product_quantity']);
         }
@@ -897,32 +936,31 @@ class Ngenius extends PaymentModule
     public function reinjectQuantityCore($order_detail, int $qty_cancel_product, $delete = false): void
     {
         // Reinject product
-        $reinjectable_quantity = (int) $order_detail->product_quantity
-            - (int) $order_detail->product_quantity_reinjected;
-        $quantity_to_reinject = $qty_cancel_product > $reinjectable_quantity
+        $reinjectable_quantity = (int)$order_detail->product_quantity
+                                 - (int)$order_detail->product_quantity_reinjected;
+        $quantity_to_reinject  = $qty_cancel_product > $reinjectable_quantity
             ? $reinjectable_quantity : $qty_cancel_product;
         /** @since 1.5.0 : Advanced Stock Management */
         $product_to_inject = new \Product(
             $order_detail->product_id,
             false,
-            (int) $this->context->language->id,
-            (int) $order_detail->id_shop
+            (int)$this->context->language->id,
+            (int)$order_detail->id_shop
         );
 
         $product = new \Product(
             $order_detail->product_id,
             false,
-            (int) $this->context->language->id,
-            (int) $order_detail->id_shop
+            (int)$this->context->language->id,
+            (int)$order_detail->id_shop
         );
 
         if (\Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT') &&
             $product->advanced_stock_management &&
             $order_detail->id_warehouse != 0
         ) {
-
-            $manager = \StockManagerFactory::getManager();
-            $movements = \StockMvt::getNegativeStockMvts(
+            $manager          = \StockManagerFactory::getManager();
+            $movements        = \StockMvt::getNegativeStockMvts(
                 $order_detail->id_order,
                 $order_detail->product_id,
                 $order_detail->product_attribute_id,
@@ -935,7 +973,7 @@ class Ngenius extends PaymentModule
                 }
 
                 $left_to_reinject -= $quantity_to_reinject;
-                if (\Pack::isPack((int) $product->id)) {
+                if (\Pack::isPack((int)$product->id)) {
                     // Gets items
                     if ($product->pack_stock_type == \Pack::STOCK_TYPE_PRODUCTS_ONLY
                         || $product->pack_stock_type == \Pack::STOCK_TYPE_PACK_BOTH
@@ -943,8 +981,8 @@ class Ngenius extends PaymentModule
                             && \Configuration::get('PS_PACK_STOCK_TYPE') > 0)
                     ) {
                         $products_pack = \Pack::getItems(
-                            (int) $product->id,
-                            (int) \Configuration::get('PS_LANG_DEFAULT')
+                            (int)$product->id,
+                            (int)\Configuration::get('PS_LANG_DEFAULT')
                         );
                         // Foreach item
                         foreach ($products_pack as $product_pack) {
@@ -1006,7 +1044,7 @@ class Ngenius extends PaymentModule
                 $order_detail->id_shop,
                 true,
                 array(
-                    'id_order' => $order_detail->id_order,
+                    'id_order'            => $order_detail->id_order,
                     'id_stock_mvt_reason' => \Configuration::get('PS_STOCK_CUSTOMER_RETURN_REASON'),
                 )
             );

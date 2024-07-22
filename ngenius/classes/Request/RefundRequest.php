@@ -4,36 +4,39 @@ namespace NGenius\Request;
 
 use NGenius\Logger;
 use NGenius\Config\Config;
+use Ngenius\NgeniusCommon\Formatter\ValueFormatter;
 use NGenius\Request\TokenRequest;
+use Ngenius\NgeniusCommon\Processor\RefundProcessor;
 
 class RefundRequest
 {
 
     const CNP_CAPTURE = "cnp:capture";
-    const CNP_REFUND = "cnp:refund";
+    const CNP_REFUND  = "cnp:refund";
 
     /**
      * Builds ENV refund request
      *
      * @param array $order
-      * @param array $ngenusOrder
+     * @param array $ngenusOrder
+     *
      * @return array|bool
      */
     public function build(array $ngenusOrder): bool|array
     {
-        $tokenRequest = new TokenRequest();
-        $config = new Config();
-        $logger = new Logger();
-        $data = array();
-        $log = [];
-        $log['path'] = __METHOD__;
-        $log['is_configured'] = false;
-        $storeId = isset(\Context::getContext()->shop->id) ? (int)\Context::getContext()->shop->id : null;
-        $amount = $ngenusOrder['amount'] * 100;
-        $token = $tokenRequest->getAccessToken();
-        $log['order_data'] = json_encode($ngenusOrder);
+        $tokenRequest              = new TokenRequest();
+        $config                    = new Config();
+        $logger                    = new Logger();
+        $data                      = array();
+        $log                       = [];
+        $log['path']               = __METHOD__;
+        $log['is_configured']      = false;
+        $storeId                   = isset(\Context::getContext()->shop->id) ? (int)\Context::getContext(
+        )->shop->id : null;
+        $token                     = $tokenRequest->getAccessToken();
+        $log['order_data']         = json_encode($ngenusOrder);
         $data['fetch_request_url'] = $config->getFetchRequestURL($ngenusOrder['reference']);
-        $data['token'] = $token;
+        $data['token']             = $token;
 
         $response = $this->query_order($data);
 
@@ -43,7 +46,13 @@ class RefundRequest
 
         $payment = $response->_embedded->payment[0];
 
-        $refund_url = $this->get_refund_url($payment);
+        $refund_url = RefundProcessor::extractUrl($payment);
+
+        $amount = $ngenusOrder['amount'] * 100;
+
+        $currencyCode = $ngenusOrder['currency'];
+
+        ValueFormatter::formatCurrencyAmount($currencyCode, $amount);
 
         if (empty($refund_url)) {
             return false;
@@ -51,26 +60,28 @@ class RefundRequest
 
         if ($config->isComplete()) {
             $log['is_configured'] = true;
-            $data = [
-                'token' => $token,
+            $data                 = [
+                'token'   => $token,
                 'request' => [
-                    'data' => [
-                        'amount' => [
+                    'data'   => [
+                        'amount'              => [
                             'currencyCode' => $ngenusOrder['currency'],
-                            'value' => strval($amount),
+                            'value'        => strval($amount),
                         ],
                         'merchantDefinedData' => [
-                            'pluginName' => 'prestashop',
-                            'pluginVersion' => '1.0.2'
+                            'pluginName'    => 'prestashop',
+                            'pluginVersion' => $config->getPluginVersion()
                         ],
                     ],
                     'method' => "POST",
-                    'uri' => $refund_url
+                    'uri'    => $refund_url
                 ]
             ];
             $logger->addLog($log);
+
             return $data;
         }
+
         return false;
     }
 
@@ -78,13 +89,13 @@ class RefundRequest
     {
         $refund_url = "";
         $cnpcapture = self::CNP_CAPTURE;
-        $cnprefund = self::CNP_REFUND;
+        $cnprefund  = self::CNP_REFUND;
         if ($payment->state == "PURCHASED" && isset($payment->_links->$cnprefund->href)) {
             $refund_url = $payment->_links->$cnprefund->href;
         } elseif ($payment->state == "CAPTURED"
-            && isset($payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href)) {
+                  && isset($payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href)) {
             $refund_url = $payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href;
-        }else {
+        } else {
             if (isset($payment->_links->$cnprefund->href)
                 || isset($payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href)) {
                 $refund_url = $payment->_embedded->$cnpcapture[0]->_links->$cnprefund->href;
@@ -96,9 +107,8 @@ class RefundRequest
 
     public function query_order($data)
     {
-
         $authorization = "Authorization: Bearer " . $data['token'];
-        $headers = array(
+        $headers       = array(
             'Content-Type: application/vnd.ni-payment.v2+json',
             $authorization,
             'Accept: application/vnd.ni-payment.v2+json'

@@ -18,14 +18,13 @@ class TokenRequest
      */
     public function getAccessToken(): bool|string
     {
-
-        $config = new Config();
-        $logger = new Logger();
-        $result = array();
-        $log = [];
-        $log['path'] = __METHOD__;
+        $config          = new Config();
+        $logger          = new Logger();
+        $result          = array();
+        $log             = [];
+        $log['path']     = __METHOD__;
         $tokenRequestURL = $config->getTokenRequestURL();
-        $httpTransfer = new NgeniusHTTPTransfer();
+        $httpTransfer    = new NgeniusHTTPTransfer("");
         $httpTransfer->setTokenHeaders($config->getApiKey());
         $httpTransfer->setUrl($tokenRequestURL);
         $httpTransfer->setMethod("POST");
@@ -36,8 +35,9 @@ class TokenRequest
         $response = NgeniusHTTPCommon::placeRequest($httpTransfer);
 
         try {
-            $result = json_decode($response);
+            $result          = json_decode($response);
             $log['response'] = $result;
+
             return $result->access_token ?? false;
         } catch (PrestaShopException $e) {
             return false;

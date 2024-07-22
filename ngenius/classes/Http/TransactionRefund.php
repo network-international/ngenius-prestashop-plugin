@@ -14,12 +14,12 @@ class TransactionRefund extends Abstracttransaction
      * Processing of API response
      *
      * @param $responseString
+     *
      * @return array|null
      * @throws Exception
      */
     public function postProcess($responseString): ?array
     {
-
         $response = json_decode($responseString, true);
         if (isset($response['errors']) && is_array($response['errors'])) {
             return null;
@@ -36,10 +36,9 @@ class TransactionRefund extends Abstracttransaction
             $logger->addLog("********************");
 
 
-
             if (isset($lastTransaction['state']) && ($lastTransaction['state'] == 'SUCCESS') ||
                 (isset($lastTransaction['_links']['cnp:china_union_pay_results'])
-                    && $lastTransaction['state'] == 'REQUESTED')) {
+                 && $lastTransaction['state'] == 'REQUESTED')) {
                 return $this->refundProcess($response, $lastTransaction);
             } else {
                 return null;
@@ -52,37 +51,38 @@ class TransactionRefund extends Abstracttransaction
      *
      * @param array $response
      * @param $lastTransaction
+     *
      * @return array|bool
      * @throws Exception
      */
     protected function refundProcess(array $response, $lastTransaction): array|bool
     {
-        $config = new Config();
-        $command = new Command();
+        $config       = new Config();
+        $command      = new Command();
         $captured_amt = $response['amount']['value'];
         $refunded_amt = $this->refundedAmount($response);
-        $logger = new Logger();
+        $logger       = new Logger();
         $logger->addLog("refund amount");
         $logger->addLog($refunded_amt);
         $last_refunded_amt = $this->lastRefundAmount($lastTransaction);
-        $transactionId = $this->transactionId($lastTransaction);
-        $orderReference = $response['orderReference'] ?? '';
-        $state = $response['state'] ?? '';
-        $captureAmt = $captured_amt > 0 ? $captured_amt / 100 : 0;
-        $refundedAmt = $refunded_amt > 0 ? $refunded_amt / 100 : 0;
+        $transactionId     = $this->transactionId($lastTransaction);
+        $orderReference    = $response['orderReference'] ?? '';
+        $state             = $response['state'] ?? '';
+        $captureAmt        = $captured_amt > 0 ? $captured_amt / 100 : 0;
+        $refundedAmt       = $refunded_amt > 0 ? $refunded_amt / 100 : 0;
         if (($captureAmt - $refundedAmt) == 0) {
-            $orderStatus = $config->getOrderStatus().'_FULLY_REFUNDED';
+            $orderStatus                      = $config->getOrderStatus() . '_FULLY_REFUNDED';
             $_SESSION['ngenius_fully_refund'] = 'true';
         } else {
-            $orderStatus = $config->getOrderStatus().'_PARTIALLY_REFUNDED';
+            $orderStatus                        = $config->getOrderStatus() . '_PARTIALLY_REFUNDED';
             $_SESSION['ngenius_partial_refund'] = 'true';
         }
         $ngeniusOrder = [
-            'capture_amt' => (float)($captured_amt/100),
-            'refunded_amt' => (float)($refunded_amt/100),
-            'status' => $orderStatus,
-            'state' => $state,
-            'reference' => $orderReference
+            'capture_amt'  => (float)($captured_amt / 100),
+            'refunded_amt' => (float)($refunded_amt / 100),
+            'status'       => $orderStatus,
+            'state'        => $state,
+            'reference'    => $orderReference
         ];
 
         $logger = new Logger();
@@ -90,15 +90,15 @@ class TransactionRefund extends Abstracttransaction
         $logger->addLog($ngeniusOrder);
         $logger->addLog("***********************");
 
-        $command->updateNngeniusNetworkinternational($ngeniusOrder);
+        $command->updateNgeniusNetworkinternational($ngeniusOrder);
 
         return [
             'result' => [
                 'total_refunded' => $refunded_amt,
-                'refunded_amt' => $last_refunded_amt,
-                'state' => $state,
-                'order_status' => $orderStatus,
-                'payment_id' => $transactionId
+                'refunded_amt'   => $last_refunded_amt,
+                'state'          => $state,
+                'order_status'   => $orderStatus,
+                'payment_id'     => $transactionId
             ]
         ];
     }
@@ -107,6 +107,7 @@ class TransactionRefund extends Abstracttransaction
      * get captured Amount
      *
      * @param array $response
+     *
      * @return int|string
      */
     protected function capturedAmount(array $response): int|string
@@ -124,6 +125,7 @@ class TransactionRefund extends Abstracttransaction
             // for temp MCP enabled customers
             $captured_amt = $response['amount']['value'];
         }
+
         return $captured_amt;
     }
 
@@ -131,6 +133,7 @@ class TransactionRefund extends Abstracttransaction
      * get refunded Amount
      *
      * @param array $response
+     *
      * @return int|string
      */
     protected function refundedAmount(array $response): int|string
@@ -142,14 +145,15 @@ class TransactionRefund extends Abstracttransaction
             foreach ($response['_embedded'][self::NGENIUS_REFUND_LITERAL] as $refund) {
                 if (isset($refund['state'])
                     && ($refund['state'] == 'SUCCESS'
-                    || (isset($refund["_links"][self::CUP_RESULTS_LITERAL])
-                    && $refund['state'] == 'REQUESTED'))
+                        || (isset($refund["_links"][self::CUP_RESULTS_LITERAL])
+                            && $refund['state'] == 'REQUESTED'))
                     && isset($refund['amount']['value'])
                 ) {
                     $refunded_amt += $refund['amount']['value'];
                 }
             }
         }
+
         return $refunded_amt;
     }
 
@@ -157,6 +161,7 @@ class TransactionRefund extends Abstracttransaction
      * get last refund amount
      *
      * @param array $lastTransaction
+     *
      * @return string
      */
     protected function lastRefundAmount(array $lastTransaction): float|int|string
@@ -166,6 +171,7 @@ class TransactionRefund extends Abstracttransaction
             && isset($lastTransaction['amount']['value'])) {
             $last_refunded_amt = $lastTransaction['amount']['value'] / 100;
         }
+
         return $last_refunded_amt;
     }
 
@@ -173,6 +179,7 @@ class TransactionRefund extends Abstracttransaction
      * get transaction Id
      *
      * @param array $lastTransaction
+     *
      * @return string
      */
     protected function transactionId(array $lastTransaction): string
@@ -180,8 +187,9 @@ class TransactionRefund extends Abstracttransaction
         $transactionId = '';
         if (isset($lastTransaction['_links']['self']['href'])) {
             $transactionArr = explode('/', $lastTransaction['_links']['self']['href']);
-            $transactionId = end($transactionArr);
+            $transactionId  = end($transactionArr);
         }
+
         return $transactionId;
     }
 }

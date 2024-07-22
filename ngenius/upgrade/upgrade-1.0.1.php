@@ -10,15 +10,16 @@ function upgrade_module_1_0_1($module)
 {
     /** @noinspection PhpUndefinedConstantInspection */
     $queries = array(
-        "ALTER TABLE `"._DB_PREFIX_."ning_online_payment`
+        "ALTER TABLE `" . _DB_PREFIX_ . "ning_online_payment`
             `refunded_amt` int(10) DEFAULT NULL AFTER `capture_amt`"
     );
-    $db = Db::getInstance();
+    $db      = Db::getInstance();
     $success = true;
     foreach ($queries as $query) {
         $success &= $db->execute($query);
     }
     $module->registerHook('displayHeader');
     $module->registerHook('actionFrontControllerSetMedia');
+
     return true;
 }

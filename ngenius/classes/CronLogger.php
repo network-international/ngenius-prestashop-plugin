@@ -10,6 +10,7 @@ class CronLogger
      * add cron log
      *
      * @param string $message
+     *
      * @return void
      */
     public function addLog(string $message): void
