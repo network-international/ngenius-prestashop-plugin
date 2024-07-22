@@ -3,17 +3,20 @@
 use NGenius\Command;
 use NGenius\Logger;
 use NGenius\Config\Config;
+use Ngenius\NgeniusCommon\Formatter\ValueFormatter;
+use Ngenius\NgeniusCommon\NgeniusUtilities;
 
 class NGeniusValidationModuleFrontController extends ModuleFrontController
 {
     public const QUERY_LITERAL = 'index.php?controller=order&step=1';
+
     /**
      * @see FrontController::postProcess()
      */
     public function postProcess(): void
     {
         $config = new Config();
-        $cart = $this->context->cart;
+        $cart   = $this->context->cart;
         if ($cart->id_customer == 0
             || $cart->id_address_delivery == 0
             || $cart->id_address_invoice == 0
@@ -41,16 +44,16 @@ class NGeniusValidationModuleFrontController extends ModuleFrontController
         }
 
         $this->context->smarty->assign([
-            'params' => $_REQUEST,
-        ]);
+                                           'params' => $_REQUEST,
+                                       ]);
         // validate Customer
         $customer = new Customer($cart->id_customer);
         if (!Validate::isLoadedObject($customer)) {
             Tools::redirect(self::QUERY_LITERAL);
         }
         // create order
-        $cart     = $this->context->cart;
-        $total    = (float)$cart->getOrderTotal(true, Cart::BOTH);
+        $cart  = $this->context->cart;
+        $total = (float)$cart->getOrderTotal(true, Cart::BOTH);
 
         if (!isset($cart->id)) {
             $this->errors[] = $this->l('Your Cart is empty!.');
@@ -75,7 +78,12 @@ class NGeniusValidationModuleFrontController extends ModuleFrontController
     public function paymentActionProcess($paymentType, $total)
     {
         $command = new Command();
-        $order = $this->getOrder();
+        $order   = $this->getOrder();
+
+        $currencyCode = $order['amount']['currencyCode'];
+
+        ValueFormatter::formatCurrencyAmount($currencyCode, $total);
+
         $paymentUrl = false;
         switch ($paymentType) {
             case "authorize_capture": // sale
@@ -93,28 +101,20 @@ class NGeniusValidationModuleFrontController extends ModuleFrontController
                 break;
         }
         if (!$paymentUrl) {
-            $this->failedPaymentRedirect($order);
+            $this->failedPaymentRedirect();
         }
         Tools::redirect($paymentUrl);
-
     }
 
     /**
      * Sets order to failed and redirects with error
      *
-     * @param $orderArr
      * @return void
-     * @throws Exception
      */
-    public function failedPaymentRedirect($orderArr): void
+    public function failedPaymentRedirect(): void
     {
-
-        $config = new NGenius\Config\Config();
-
-        $order = new Order($orderArr['merchantOrderReference']);
-        $order->setCurrentState((int)Configuration::get($config->getOrderStatus().'_FAILED'));
-
-        $this->errors[] = $this->l($_SESSION['ngenius_errors']);
+        $errorMessage   = $_SESSION['ngenius_errors'] ?? "Could not start NGenius...";
+        $this->errors[] = $this->l($errorMessage);
         $this->redirectWithNotifications(self::QUERY_LITERAL);
     }
 
@@ -125,16 +125,19 @@ class NGeniusValidationModuleFrontController extends ModuleFrontController
      */
     public function getOrder(): array
     {
-        $cart     = $this->context->cart;
-        $address = new Address($cart->id_address_delivery);
+        $cart        = $this->context->cart;
+        $address     = new Address($cart->id_address_delivery);
+        $utilities   = new NgeniusUtilities();
+        $countryCode = $this->context->country->iso_code;
+
         /** @noinspection PhpUndefinedConstantInspection */
         return [
-            'action' => null,
-            'amount' => [
+            'action'                 => null,
+            'amount'                 => [
                 'currencyCode' => $this->context->currency->iso_code,
-                'value' => (float) $cart->getOrderTotal(true, Cart::BOTH) * 100,
+                'value'        => (float)$cart->getOrderTotal(true, Cart::BOTH) * 100,
             ],
-            'merchantAttributes' => [
+            'merchantAttributes'     => [
                 "redirectUrl" => filter_var(
                     $this->context->link->getModuleLink(
                         $this->module->name,
@@ -145,17 +148,36 @@ class NGeniusValidationModuleFrontController extends ModuleFrontController
                     FILTER_SANITIZE_URL
                 )
             ],
-            'billingAddress'    => [
-                'firstName'     => $address->firstname,
-                'lastName'      => $address->lastname,
-                'address1'      => $address->address1,
-                'city'          => $address->city,
-                'countryCode'   => $this->context->country->iso_code,
+            'billingAddress'         => [
+                'firstName'   => $address->firstname,
+                'lastName'    => $address->lastname,
+                'address1'    => $address->address1,
+                'address2'    => $address->address2,
+                'city'        => $address->city,
+                'stateCode'   => $this->getState($address),
+                'postalCode'  => $address->postcode,
+                'countryCode' => $countryCode,
             ],
-            'emailAddress' => $this->context->customer->email,
+            'emailAddress'           => $this->context->customer->email,
+            'phoneNumber'            => [
+                'countryCode' => $utilities->getCountryTelephonePrefix($countryCode),
+                'subscriber'  => $address->phone,
+            ],
             'merchantOrderReference' => $cart->id,
-            'method' => null,
-            'uri' => null
+            'method'                 => null,
+            'uri'                    => null
         ];
+    }
+
+    /**
+     * @param Address $address
+     *
+     * @return string
+     */
+    public function getState($address): string
+    {
+        $state = new State($address->id_state) ?? '';
+
+        return $state ? (string)$state->name : '';
     }
 }

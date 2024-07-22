@@ -12,6 +12,7 @@ class TransactionOrderRequest extends AbstractTransaction
      * Processing of API response
      *
      * @param $responseString
+     *
      * @return array|null
      */
     public function postProcess($responseString): ?array
@@ -19,6 +20,7 @@ class TransactionOrderRequest extends AbstractTransaction
         if ($responseString) {
             return json_decode($responseString, true);
         }
+
         return null;
     }
 }

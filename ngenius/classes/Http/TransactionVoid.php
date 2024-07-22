@@ -13,13 +13,14 @@ class TransactionVoid extends Abstracttransaction
      * Processing of API response
      *
      * @param $responseString
+     *
      * @return array|bool
      * @throws Exception
      */
     public function postProcess($responseString): ?array
     {
-        $config = new Config();
-        $command = new Command();
+        $config   = new Config();
+        $command  = new Command();
         $response = json_decode($responseString, true);
         if (isset($response['errors']) && is_array($response['errors'])) {
             return null;
@@ -27,24 +28,25 @@ class TransactionVoid extends Abstracttransaction
             $transactionId = '';
             if (isset($response['_links']['self']['href'])) {
                 $transactionArr = explode('/', $response['_links']['self']['href']);
-                $transactionId = end($transactionArr);
+                $transactionId  = end($transactionArr);
             }
-            $state = isset($response['state']) ? $response['state'] : '';
+            $state          = isset($response['state']) ? $response['state'] : '';
             $orderReference = isset($response['orderReference']) ? $response['orderReference'] : '';
-            $orderStatus = $config->getOrderStatus().'_AUTH_REVERSED';
-            $ngeniusOrder = [
-                'status' => $orderStatus,
-                'state' => $state,
+            $orderStatus    = $config->getOrderStatus() . '_AUTH_REVERSED';
+            $ngeniusOrder   = [
+                'status'    => $orderStatus,
+                'state'     => $state,
                 'reference' => $orderReference,
 
             ];
-            $command->updateNngeniusNetworkinternational($ngeniusOrder);
+            $command->updateNgeniusNetworkinternational($ngeniusOrder);
             $_SESSION['ngenius_auth_reversed'] = 'true';
+
             return [
                 'result' => [
-                    'state' => $state,
+                    'state'        => $state,
                     'order_status' => $orderStatus,
-                    'id_capture' => $transactionId,
+                    'id_capture'   => $transactionId,
                 ]
             ];
         }

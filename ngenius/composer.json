@@ -1,21 +1,21 @@
 {
-    "name": "networkinternational/ngenius",
-    "description": "Hosted Payment Page with simple, secure and PCI DSS compliant.",
-    "authors": [
-        {
-            "name": "Network International"
-        }
-    ],
-    "autoload": {
-      "psr-4": {
-        "NGenius\\": "classes/"
-      },
-      "config": {
-        "prepend-autoloader": false
-      },
-      "type": "prestashop-module"
-    },
-    "require": {
-        "ngenius/ngenius-common": "dev-main"
+  "name": "networkinternational/ngenius",
+  "description": "Hosted Payment Page with simple, secure and PCI DSS compliant.",
+  "authors": [
+    {
+      "name": "Network International"
     }
+  ],
+  "autoload": {
+    "psr-4": {
+      "NGenius\\": "classes/"
+    },
+    "config": {
+      "prepend-autoloader": false
+    },
+    "type": "prestashop-module"
+  },
+  "require": {
+    "ngenius/ngenius-common": "v1.0.9"
+  }
 }

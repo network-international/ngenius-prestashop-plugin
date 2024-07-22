@@ -8,6 +8,7 @@ class ResponseValidator
      * Performs response validation for transaction
      *
      * @param array $response
+     *
      * @return array|bool
      */
     public function validate(array $response): bool|string

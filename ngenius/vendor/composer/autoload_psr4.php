@@ -6,6 +6,7 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'megastruktur\\' => array($vendorDir . '/megastruktur/phone-country-codes/src'),
     'Ngenius\\NgeniusCommon\\' => array($vendorDir . '/ngenius/ngenius-common/src'),
     'NGenius\\' => array($baseDir . '/classes'),
 );

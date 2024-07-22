@@ -1,5 +1,5 @@
 <ul>
-    {foreach from=$config key=name item=value}           
+    {foreach from=$config key=name item=value}
         {assign var=name value=value}
     {/foreach}
 </ul>
@@ -53,24 +53,24 @@
                 </div>
             </div>
             <div class="cur-out">
-                {foreach from=$currencyOutletid key=curoutkey item=curoutval} 
-                    <div class="form-group">                    
+                {foreach from=$currencyOutletid key=curoutkey item=curoutval}
+                    <div class="form-group">
                         <label class="control-label col-lg-3 required">
-                            {if $curoutkey eq 0} Currency / Outlet ID {/if} 
-                        </label>                     
+                            {if $curoutkey eq 0} Currency / Outlet ID {/if}
+                        </label>
                         <div class="col-lg-1">
                             <input type="text" maxlength="3" name="CURRENCY_OUTLETID[{$curoutkey}][CURRENCY]" id="CURRENCY_OUTLETID[{$curoutkey}][CURRENCY]" value="{$curoutval.CURRENCY}" class="" placeholder="CURRENCY" required>
                         </div>
                         <div class="col-lg-4">
                             <input type="text" name="CURRENCY_OUTLETID[{$curoutkey}][OUTLET_ID]" id="CURRENCY_OUTLETID[{$curoutkey}][OUTLET_ID]" value="{$curoutval.OUTLET_ID}" class="" placeholder="OUTLET ID" required>
-                        </div>                    
+                        </div>
                         <div class="col-lg-1">
                             {if $curoutkey eq 0}
                                 <a class="btn add-btn" title="Add New Currency"><i class="process-icon-new"></i></a>
                             {else}
                                 <a class="btn remove-lnk" title="Remove Currency"><i class="process-icon-close" style="color:red;"></i></a>
                             {/if}
-                        </div>              
+                        </div>
                     </div>
                 {/foreach}
             </div>
@@ -93,6 +93,15 @@
                     <select name="DEBUG" class="fixed-width-xl" id="DEBUG">
                         <option value="1" {($config['DEBUG'] eq '1') ? 'selected="selected"' : ''}>Yes</option>
                         <option value="0" {($config['DEBUG'] eq '0') ? 'selected="selected"' : ''}>No</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="control-label col-lg-3 required"> Debug Cron</label>
+                <div class="col-lg-6">
+                    <select name="DEBUG_CRON" class="fixed-width-xl" id="DEBUG_CRON">
+                        <option value="0" {($config['DEBUG_CRON'] eq '0') ? 'selected="selected"' : ''}>No</option>
+                        <option value="1" {($config['DEBUG_CRON'] eq '1') ? 'selected="selected"' : ''}>Yes</option>
                     </select>
                 </div>
             </div>
@@ -122,7 +131,7 @@
     <p><b>Please add the below cron job in your cron module or server.</b></p>
     <p><b>This cron will run the Query API to retrieve the status of incomplete requests from Payment Gateway and update the order status in Prestashop.</b></p>
     <p><b>It is recommended to run this cron every minutes.</b> </p>
-          <p><br/><b><a>*/1 * * * * curl "{$url}"</a> </b></p>       
+          <p><br/><b><a>*/1 * * * * curl "{$url}"</a> </b></p>
         </div>
 <script type="text/javascript">
     $(document).ready(function () {
@@ -130,15 +139,15 @@
       var x = {count($currencyOutletid) - 1};
 
       $('.add-btn').click(function (e) {
-         
+
           console.log(x);
         e.preventDefault();
         console.log(x);
-        if (x < max_input) { 
+        if (x < max_input) {
           x++;
           $('.cur-out').append(`
             <div class="form-group">
-                <label class="control-label col-lg-3"> </label>                     
+                <label class="control-label col-lg-3"> </label>
                 <div class="col-lg-1">
                     <input type="text" maxlength="3" name="CURRENCY_OUTLETID[`+x+`][CURRENCY]" id="CURRENCY_OUTLETID[`+x+`][CURRENCY]" value="" class="" placeholder="CURRENCY" required>
                 </div>
@@ -149,15 +158,15 @@
                     <a class="btn remove-lnk" title="Remove Currency"><i class="process-icon-close" style="color:red;"></i></a>
                  </div>
             </div>
-          `); 
+          `);
         }
       });
-      
+
       $('.cur-out').on("click", ".remove-lnk", function (e) {
         e.preventDefault();
         $(this).parent('div').parent('div').remove();
-        x--; 
+        x--;
       })
- 
+
     });
   </script>

@@ -8,17 +8,17 @@
             <div class="well col-sm-12">
                 <div class="col-sm-6">
                     <div class="panel-heading">Capture / Void<span class="badge"></span></div>
-                    Authorized Amount : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'} {number_format($ngeniusOrder['amount'], 2)|escape:'htmlall':'UTF-8'}<br/>  <br>
+                    Authorized Amount : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'} {$ngeniusOrder['amount']|escape:'htmlall':'UTF-8'}<br/>  <br>
                     <div class="col-sm-6">
                         <form class="container-command-top-spacing" action="{$formAction|escape:'htmlall':'UTF-8'}" method="post")>
-                            <button type="submit" name="fullyCaptureNgenius" class="btn btn-primary">
+                            <button type="submit" name="fullyCaptureNgenius" class="btn btn-primary mb-3">
                                 <i class="icon-check"></i> Full Capture
                             </button>
                         </form>
                     </div>
                     <div class="col-sm-6">
                         <form class="container-command-top-spacing" action="{$formAction|escape:'htmlall':'UTF-8'}" method="post")>
-                            <button type="submit" name="voidNgenius" class="btn btn-primary">
+                            <button type="submit" name="voidNgenius" class="btn btn-primary mb-3">
                                 <i class="icon-check"></i> Void
                             </button>
                         </form>
@@ -42,9 +42,9 @@
         <div class="col-sm-4">
             <div class="panel-heading"><b>Refund<span class="badge"></b></span></div>
             <form class="container-command-top-spacing" action="{$formAction|escape:'htmlall':'UTF-8'}" method="post")>
-                Captured Amount : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'} {number_format($ngeniusOrder['capture_amt'], 2)|escape:'htmlall':'UTF-8'}<br/>  <br>
-                <div class="input-group">Amount to refund: <input type="number" name="refundAmount" step="any" required  min="0.01">{$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'}</div><br>
-                <button type="submit" name="partialRefundNgenius" class="btn btn-primary">
+                Captured Amount : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'} {$ngeniusOrder['capture_amt']|escape:'htmlall':'UTF-8'}<br/>  <br>
+                <div class="input-group" id="refund-input">Amount to refund: <input type="number" name="refundAmount" step="any" required  min="0.01">{$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'}</div><br>
+                <button type="submit" name="partialRefundNgenius" class="btn btn-primary mb-3" id="refund-button">
                     <i class="icon-check"></i> Refund
                 </button>
             </form>
@@ -59,9 +59,9 @@
                     <span>Capture Id       : {$ngeniusOrder['id_capture']|escape:'htmlall':'UTF-8'}</span></br></br>
                 </div>
                 <div class="col-sm-4 ">
-                    <span>Total Paid        : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'|escape:'htmlall':'UTF-8'} {number_format($ngeniusOrder['amount'], 2)|escape:'htmlall':'UTF-8'}</span></br></br>
-                    <span>Total Capture     : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'} {number_format($ngeniusOrder['capture_amt'], 2)|escape:'htmlall':'UTF-8'}</span></br></br>
-                    <span>Total Refunded    : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'} {number_format($ngeniusOrder['refunded_amt'], 2)|escape:'htmlall':'UTF-8'}</span></br></br>
+                    <span>Total Paid        : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'|escape:'htmlall':'UTF-8'} {$ngeniusOrder['amount']|escape:'htmlall':'UTF-8'}</span></br></br>
+                    <span>Total Capture     : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'} {$ngeniusOrder['capture_amt']|escape:'htmlall':'UTF-8'}</span></br></br>
+                    <span>Total Refunded    : {$ngeniusOrder['currency']|escape:'htmlall':'UTF-8'} {$ngeniusOrder['refunded_amt']|escape:'htmlall':'UTF-8'}</span></br></br>
                 </div>
             </div>
 
@@ -69,3 +69,24 @@
 </div>
 
 {/if}
+
+<script>
+  // Assuming $hideButton is the JavaScript variable passed to the .tpl file
+  var hideRefundBtn = {$hideRefundBtn};
+
+  // Function to hide or show the button based on the value of hideButton
+  function toggleButtonVisibility() {
+    var button = document.getElementById('refund-button');
+    var refundInput = document.getElementById('refund-input');
+    if (hideRefundBtn) {
+      button.style.display = 'none'; // Hide the button
+      refundInput.style.display = 'none';
+    } else {
+      button.style.display = 'block'; // Show the button
+      refundInput.style.display = 'block';
+    }
+  }
+
+  // Call the function to initially set the button visibility
+  toggleButtonVisibility();
+</script>

@@ -10,8 +10,8 @@ class NGeniusFailedorderModuleFrontController extends ModuleFrontController
     public function postProcess(): void
     {
         $this->context->smarty->assign([
-            'module' => \Configuration::get('DISPLAY_NAME'),
-        ]);
+                                           'module' => \Configuration::get('DISPLAY_NAME'),
+                                       ]);
         $this->setTemplate('module:ngenius/views/templates/front/payment_error.tpl');
     }
 }
