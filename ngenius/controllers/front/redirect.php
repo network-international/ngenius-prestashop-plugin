@@ -4,6 +4,7 @@ use NGenius\Logger;
 use NGenius\CronLogger;
 use NGenius\Command;
 use NGenius\Config\Config;
+use Ngenius\NgeniusCommon\Formatter\ValueFormatter;
 use Ngenius\NgeniusCommon\Processor\ApiProcessor;
 
 class NGeniusRedirectModuleFrontController extends ModuleFrontController
@@ -107,6 +108,12 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
         if (!Order::getByCartId($cart_id)) {
             $cart = new Cart($cart_id);
 
+            if (empty($cart->id)) {
+                $cronLogger->addLog("N-GENIUS: Processing order #" . 'null');
+                $cronLogger->addLog("N-GENIUS: Platform order not found");
+                $cronLogger->addLog("N-GENIUS: Cron ended");
+            }
+
             $this->module->validateOrder(
                 (int)$cart_id,
                 $config->getInitialStatus(),
@@ -121,6 +128,8 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
         }
 
         $order = Order::getByCartId($cart_id);
+
+        $cronLogger->addLog("N-GENIUS: Processing order #" . $order->id);
 
         $captureAmount = 0;
         $transactionId = null;
@@ -139,7 +148,10 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
             switch ($state) {
                 case 'CAPTURED':
                 case 'PURCHASED':
-                    $captureAmount = $apiProcessor->getCapturedAmount();
+                    $captureAmount = ValueFormatter::intToFloatRepresentation(
+                        $ngeniusOrder['currency'],
+                        $apiProcessor->getCapturedAmount()
+                    );
                     $transactionId = $apiProcessor->getTransactionId();
                     $status        = $config->getOrderStatus() . '_COMPLETE';
                     $command->sendOrderConfirmationMail($order);
@@ -182,7 +194,6 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
             }
         } else {
             $command::deleteNgeniusOrder($cart_id);
-            $cronLogger->addLog("N-GENIUS: Platform order not found");
         }
 
         return false;
@@ -211,6 +222,7 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
             'card_brand'      => $paymentMethod['name'] ?? null,
             'card_expiration' => $paymentMethod['expiry'] ?? null,
             'card_holder'     => $paymentMethod['cardholderName'] ?? null,
+            'currencyCode'    => $response['amount']['currencyCode'],
         ];
     }
 

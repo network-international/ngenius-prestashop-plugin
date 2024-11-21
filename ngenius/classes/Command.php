@@ -224,7 +224,10 @@ class Command extends Model
         $orderPayment                  = new \OrderPayment();
         $orderPayment->order_reference = pSQL($command->getOrderReference($data['id_order']));
         $orderPayment->id_currency     = (int)$order->id_currency;
-        $orderPayment->amount          = (float)($data['amount'] / 100);
+        $orderPayment->amount          = ValueFormatter::intToFloatRepresentation(
+            $data['currencyCode'],
+            $data['amount']
+        );
         $orderPayment->payment_method  = pSQL('N-Genius Payment Gateway');
         $orderPayment->transaction_id  = pSQL($data['transaction_id']);
         $orderPayment->card_number     = pSQL($data['card_number']);
@@ -396,9 +399,8 @@ class Command extends Model
     {
         $amount = null;
         if (isset($response['amount']['value'])) {
-            $value        = (float)$response['amount']['value'] / 100;
             $currencyCode = $response['amount']['currencyCode'];
-            $value        = ValueFormatter::formatOrderStatusAmount($currencyCode, $value);
+            $value        = ValueFormatter::intToFloatRepresentation($currencyCode, $response['amount']['value']);
             ValueFormatter::formatCurrencyDecimals($currencyCode, $value);
 
             $amount = self::AMOUNT_LITERAL . $currencyCode . " " . $value . ' | ';
@@ -420,10 +422,11 @@ class Command extends Model
         if (isset($lastTransaction['state'])
             && ($lastTransaction['state'] == 'SUCCESS')
             && isset($lastTransaction['amount']['value'])) {
-            $value        = $lastTransaction['amount']['value'] / 100;
             $currencyCode = $lastTransaction['amount']['currencyCode'];
-
-            $value = ValueFormatter::formatOrderStatusAmount($currencyCode, $value);
+            $value        = ValueFormatter::intToFloatRepresentation(
+                $currencyCode,
+                $lastTransaction['amount']['value']
+            );
 
             ValueFormatter::formatCurrencyDecimals($currencyCode, $value);
 
@@ -446,10 +449,8 @@ class Command extends Model
         $amount = null;
         foreach ($response['_embedded'][self::NGENIUS_REFUND_LITERAL] as $refund) {
             if (isset($refund['state']) && ($refund['state'] == 'SUCCESS') && isset($refund['amount']['value'])) {
-                $value        = $refund['amount']['value'] / 100;
                 $currencyCode = $lastTransaction['amount']['currencyCode'];
-
-                $value = ValueFormatter::formatOrderStatusAmount($currencyCode, $value);
+                $value        = ValueFormatter::intToFloatRepresentation($currencyCode, $refund['amount']['value']);
 
                 ValueFormatter::formatCurrencyDecimals($currencyCode, $value);
 

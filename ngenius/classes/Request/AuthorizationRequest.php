@@ -4,6 +4,7 @@ namespace NGenius\Request;
 
 use NGenius\Logger;
 use NGenius\Config\Config;
+use Ngenius\NgeniusCommon\Formatter\ValueFormatter;
 use NGenius\Request\AbstractRequest;
 
 class AuthorizationRequest extends AbstractRequest
@@ -23,12 +24,13 @@ class AuthorizationRequest extends AbstractRequest
         $log                 = [];
         $log['path']         = __METHOD__;
         $storeId             = isset(\Context::getContext()->shop->id) ? (int)\Context::getContext()->shop->id : null;
+        $currencyCode        = $order['amount']['currencyCode'];
         $data                = [
             'data'   => [
                 'action'                 => 'AUTH',
                 'amount'                 => [
-                    'currencyCode' => $order['amount']['currencyCode'],
-                    'value'        => (int)($amount * 100),
+                    'currencyCode' => $currencyCode,
+                    'value'        => ValueFormatter::floatToIntRepresentation($currencyCode, $amount),
                 ],
                 'merchantAttributes'     => [
                     'redirectUrl'          => $order['merchantAttributes']['redirectUrl'],

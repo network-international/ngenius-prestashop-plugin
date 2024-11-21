@@ -22,12 +22,10 @@ class Model
 
         $amount = $data['amount'];
 
-        $amount = ValueFormatter::formatOrderStatusAmount($currencyCode, $amount);
-
         $insertData = array(
             'id_cart'      => (int)$data['id_cart'],
             'id_order'     => (int)$data['id_order'],
-            'amount'       => (float)($amount / 100),
+            'amount'       => ValueFormatter::intToFloatRepresentation($currencyCode, $amount),
             'currency'     => pSQL($currencyCode),
             'reference'    => pSQL($data['reference']),
             'action'       => pSQL($data['action']),
