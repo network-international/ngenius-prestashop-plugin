@@ -48,11 +48,9 @@ class RefundRequest
 
         $refund_url = RefundProcessor::extractUrl($payment);
 
-        $amount = $ngenusOrder['amount'] * 100;
-
         $currencyCode = $ngenusOrder['currency'];
 
-        ValueFormatter::formatCurrencyAmount($currencyCode, $amount);
+        $amount = ValueFormatter::floatToIntRepresentation($currencyCode, $ngenusOrder['amount']);
 
         if (empty($refund_url)) {
             return false;
@@ -66,7 +64,7 @@ class RefundRequest
                     'data'   => [
                         'amount'              => [
                             'currencyCode' => $ngenusOrder['currency'],
-                            'value'        => strval($amount),
+                            'value'        => $amount,
                         ],
                         'merchantDefinedData' => [
                             'pluginName'    => 'prestashop',

@@ -21,7 +21,7 @@ class Ngenius extends PaymentModule
         $config              = new Config();
         $this->name          = 'ngenius';
         $this->tab           = 'payments_gateways';
-        $this->version       = '1.1.0';
+        $this->version       = '1.1.1';
         $this->author        = 'Network International';
         $this->need_instance = 1;
 

@@ -25,11 +25,8 @@ class CaptureRequest
         $log['path']          = __METHOD__;
         $log['is_configured'] = false;
         $storeId              = isset(\Context::getContext()->shop->id) ? (int)\Context::getContext()->shop->id : null;
-        $amount               = $ngenusOrder['amount'] * 100;
-
-        $currencyCode = $ngenusOrder['currency'];
-
-        ValueFormatter::formatCurrencyAmount($currencyCode, $amount);
+        $currencyCode         = $ngenusOrder['currency'];
+        $amount               = ValueFormatter::floatToIntRepresentation($currencyCode, $ngenusOrder['amount']);
 
         if ($config->isComplete()) {
             $log['is_configured']   = true;
@@ -39,7 +36,7 @@ class CaptureRequest
                     'data'   => [
                         'amount'              => [
                             'currencyCode' => $ngenusOrder['currency'],
-                            'value'        => strval($amount),
+                            'value'        => $amount,
                         ],
                         'merchantDefinedData' => [
                             'pluginName'    => 'prestashop',

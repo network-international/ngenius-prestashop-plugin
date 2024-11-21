@@ -7,6 +7,7 @@ use NGenius\Command;
 use NGenius\Config\Config;
 use NGenius\Http\AbstractTransaction;
 use NGenius\Logger;
+use Ngenius\NgeniusCommon\Formatter\ValueFormatter;
 
 class TransactionRefund extends Abstracttransaction
 {
@@ -57,19 +58,22 @@ class TransactionRefund extends Abstracttransaction
      */
     protected function refundProcess(array $response, $lastTransaction): array|bool
     {
-        $config       = new Config();
-        $command      = new Command();
-        $captured_amt = $response['amount']['value'];
-        $refunded_amt = $this->refundedAmount($response);
-        $logger       = new Logger();
+        $config         = new Config();
+        $command        = new Command();
+        $currencyCode   = $response['amount']['currencyCode'];
+        $captured_amt   = ValueFormatter::intToFloatRepresentation($currencyCode, $response['amount']['value']);
+        $getRefundedAmt = $this->refundedAmount($response);
+        $refunded_amt   = ValueFormatter::intToFloatRepresentation($currencyCode, $getRefundedAmt);
+        $logger         = new Logger();
         $logger->addLog("refund amount");
         $logger->addLog($refunded_amt);
-        $last_refunded_amt = $this->lastRefundAmount($lastTransaction);
-        $transactionId     = $this->transactionId($lastTransaction);
-        $orderReference    = $response['orderReference'] ?? '';
-        $state             = $response['state'] ?? '';
-        $captureAmt        = $captured_amt > 0 ? $captured_amt / 100 : 0;
-        $refundedAmt       = $refunded_amt > 0 ? $refunded_amt / 100 : 0;
+        $getLastRefundedAmt = $this->lastRefundAmount($lastTransaction);
+        $last_refunded_amt  = ValueFormatter::intToFloatRepresentation($currencyCode, $getLastRefundedAmt);
+        $transactionId      = $this->transactionId($lastTransaction);
+        $orderReference     = $response['orderReference'] ?? '';
+        $state              = $response['state'] ?? '';
+        $captureAmt         = $captured_amt > 0 ? $captured_amt : 0;
+        $refundedAmt        = $refunded_amt > 0 ? $refunded_amt : 0;
         if (($captureAmt - $refundedAmt) == 0) {
             $orderStatus                      = $config->getOrderStatus() . '_FULLY_REFUNDED';
             $_SESSION['ngenius_fully_refund'] = 'true';
@@ -78,8 +82,8 @@ class TransactionRefund extends Abstracttransaction
             $_SESSION['ngenius_partial_refund'] = 'true';
         }
         $ngeniusOrder = [
-            'capture_amt'  => (float)($captured_amt / 100),
-            'refunded_amt' => (float)($refunded_amt / 100),
+            'capture_amt'  => $captured_amt,
+            'refunded_amt' => $refunded_amt,
             'status'       => $orderStatus,
             'state'        => $state,
             'reference'    => $orderReference
@@ -169,7 +173,7 @@ class TransactionRefund extends Abstracttransaction
         $last_refunded_amt = 0;
         if (isset($lastTransaction['state']) && ($lastTransaction['state'] == 'SUCCESS')
             && isset($lastTransaction['amount']['value'])) {
-            $last_refunded_amt = $lastTransaction['amount']['value'] / 100;
+            $last_refunded_amt = $lastTransaction['amount']['value'];
         }
 
         return $last_refunded_amt;

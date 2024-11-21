@@ -89,16 +89,16 @@ class TransactionCapture extends AbstractTransaction
      */
     protected function captureAmount(array $lastTransaction): int|string|float
     {
-        $capturedAmt = 0;
+        $capturedAmt  = 0;
+        $currencyCode = $lastTransaction['amount']['currencyCode'];
+
         if (isset($lastTransaction['state'])
             && ($lastTransaction['state'] == 'SUCCESS')
             && isset($lastTransaction['amount']['value'])) {
-            $capturedAmt = $lastTransaction['amount']['value'] / 100;
+            $capturedAmt = ValueFormatter::intToFloatRepresentation($currencyCode, $lastTransaction['amount']['value']);
         }
 
-        $currencyCode = $lastTransaction['amount']['currencyCode'];
-
-        return ValueFormatter::formatOrderStatusAmount($currencyCode, $capturedAmt);
+        return $capturedAmt;
     }
 
     /**

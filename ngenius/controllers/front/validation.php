@@ -80,10 +80,6 @@ class NGeniusValidationModuleFrontController extends ModuleFrontController
         $command = new Command();
         $order   = $this->getOrder();
 
-        $currencyCode = $order['amount']['currencyCode'];
-
-        ValueFormatter::formatCurrencyAmount($currencyCode, $total);
-
         $paymentUrl = false;
         switch ($paymentType) {
             case "authorize_capture": // sale
@@ -125,17 +121,19 @@ class NGeniusValidationModuleFrontController extends ModuleFrontController
      */
     public function getOrder(): array
     {
-        $cart        = $this->context->cart;
-        $address     = new Address($cart->id_address_delivery);
-        $utilities   = new NgeniusUtilities();
-        $countryCode = $this->context->country->iso_code;
+        $cart         = $this->context->cart;
+        $address      = new Address($cart->id_address_delivery);
+        $utilities    = new NgeniusUtilities();
+        $countryCode  = $this->context->country->iso_code;
+        $currencyCode = $this->context->currency->iso_code;
+        $amount       = (float)$cart->getOrderTotal(true, Cart::BOTH);
 
         /** @noinspection PhpUndefinedConstantInspection */
         return [
             'action'                 => null,
             'amount'                 => [
-                'currencyCode' => $this->context->currency->iso_code,
-                'value'        => (float)$cart->getOrderTotal(true, Cart::BOTH) * 100,
+                'currencyCode' => $currencyCode,
+                'value'        => ValueFormatter::floatToIntRepresentation($currencyCode, $amount),
             ],
             'merchantAttributes'     => [
                 "redirectUrl" => filter_var(

@@ -16,6 +16,6 @@
     "type": "prestashop-module"
   },
   "require": {
-    "ngenius/ngenius-common": "v1.0.9"
+    "ngenius/ngenius-common": "v1.0.12"
   }
 }
