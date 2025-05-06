@@ -11,7 +11,7 @@
             <div class="form-group">
                 <label class="control-label col-lg-3 required">Display Name</label>
                 <div class="col-lg-6">
-                    <input type="text" name="DISPLAY_NAME" id="DISPLAY_NAME" value="{($config['DISPLAY_NAME']) ? $config['DISPLAY_NAME'] : "N-Genius Online Payment Gateway"}" class="" required="required">
+                    <input type="text" name="DISPLAY_NAME" id="DISPLAY_NAME" value="{($config['DISPLAY_NAME']) ? $config['DISPLAY_NAME'] : "N-Genius Online by Network Payment Gateway"}" class="" required="required">
                 </div>
             </div>
             <div class="form-group">
@@ -134,39 +134,39 @@
           <p><br/><b><a>*/1 * * * * curl "{$url}"</a> </b></p>
         </div>
 <script type="text/javascript">
-    $(document).ready(function () {
-      var max_input = 50;
-      var x = {count($currencyOutletid) - 1};
+  $(document).ready(function () {
+    var max_input = 50
+    var x = {count($currencyOutletid) - 1};
 
-      $('.add-btn').click(function (e) {
+    $('.add-btn').click(function (e) {
 
-          console.log(x);
-        e.preventDefault();
-        console.log(x);
-        if (x < max_input) {
-          x++;
-          $('.cur-out').append(`
+      console.log(x)
+      e.preventDefault()
+      console.log(x)
+      if (x < max_input) {
+        x++
+        $('.cur-out').append(`
             <div class="form-group">
                 <label class="control-label col-lg-3"> </label>
                 <div class="col-lg-1">
-                    <input type="text" maxlength="3" name="CURRENCY_OUTLETID[`+x+`][CURRENCY]" id="CURRENCY_OUTLETID[`+x+`][CURRENCY]" value="" class="" placeholder="CURRENCY" required>
+                    <input type="text" maxlength="3" name="CURRENCY_OUTLETID[` + x + `][CURRENCY]" id="CURRENCY_OUTLETID[` + x + `][CURRENCY]" value="" class="" placeholder="CURRENCY" required>
                 </div>
                 <div class="col-lg-4">
-                    <input type="text" name="CURRENCY_OUTLETID[`+x+`][OUTLET_ID]" id="CURRENCY_OUTLETID[`+x+`][OUTLET_ID]" value="" class="" placeholder="OUTLET ID" required>
+                    <input type="text" name="CURRENCY_OUTLETID[` + x + `][OUTLET_ID]" id="CURRENCY_OUTLETID[` + x + `][OUTLET_ID]" value="" class="" placeholder="OUTLET ID" required>
                 </div>
                 <div class="col-lg-1">
                     <a class="btn remove-lnk" title="Remove Currency"><i class="process-icon-close" style="color:red;"></i></a>
                  </div>
             </div>
-          `);
-        }
-      });
+          `)
+      }
+    })
 
-      $('.cur-out').on("click", ".remove-lnk", function (e) {
-        e.preventDefault();
-        $(this).parent('div').parent('div').remove();
-        x--;
-      })
+    $('.cur-out').on('click', '.remove-lnk', function (e) {
+      e.preventDefault()
+      $(this).parent('div').parent('div').remove()
+      x--
+    })
 
-    });
-  </script>
+  })
+</script>

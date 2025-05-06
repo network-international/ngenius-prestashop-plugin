@@ -21,7 +21,7 @@ class Ngenius extends PaymentModule
         $config              = new Config();
         $this->name          = 'ngenius';
         $this->tab           = 'payments_gateways';
-        $this->version       = '1.1.1';
+        $this->version       = '1.2.0';
         $this->author        = 'Network International';
         $this->need_instance = 1;
 
@@ -612,7 +612,7 @@ class Ngenius extends PaymentModule
             }
 
             // Hide refund button
-            if ($ngeniusOrder['amount'] === $ngeniusOrder['refunded_amt']) {
+            if ($ngeniusOrder['amount'] === $ngeniusOrder['refunded_amt'] || $ngeniusOrder['status'] === $config->getOrderStatus() . '_AUTH_REVERSED') {
                 $hideRefundBtn = true;
             }
 

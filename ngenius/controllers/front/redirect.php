@@ -56,8 +56,11 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
             $command::deleteNgeniusOrder($cart_id);
             $log['redirected_to'] = 'module/ngenius/failedorder';
             $logger->addLog($log);
+            $status = ('STARTED' == $orderState) ? 'Cancelled' : 'Declined';
             /** @noinspection PhpUndefinedConstantInspection */
-            Tools::redirect(\Tools::getHttpHost(true) . __PS_BASE_URI__ . 'module/ngenius/failedorder');
+            Tools::redirect(
+                \Tools::getHttpHost(true) . __PS_BASE_URI__ . 'module/ngenius/failedorder?status=' . urlencode($status)
+            );
         }
 
         if (!Order::getByCartId($cart_id)) {
