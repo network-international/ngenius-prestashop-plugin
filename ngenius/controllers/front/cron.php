@@ -94,30 +94,27 @@ class NGeniusCronModuleFrontController extends NGeniusRedirectModuleFrontControl
                 $response = json_decode(json_encode($response), true);
 
                 // Check if the response contains an error message and code
-                if (isset($response['message']) && isset($response['code'])) {
-                    if (isset($response['code']) == 404 || isset($response['errors'])) {
-                        throw new Exception("Error " . $response['code'] . ": " . $response['message']);
-                    }
+                if (isset($response['code']) == 404 || isset($response['errors'])) {
+                    throw new Exception("Error " . $response['code'] . ": " . $response['message']);
+                }
 
-                    if ($response && isset($response['_embedded']['payment']) && is_array(
-                            $response['_embedded']['payment']
-                        )) {
-                        $apiProcessor = new ApiProcessor($response);
+                if ($response && isset($response['_embedded']['payment']) && is_array(
+                        $response['_embedded']['payment']
+                    )) {
+                    $apiProcessor = new ApiProcessor($response);
 
-                        if ($this->processOrder($apiProcessor, $ngeniusOrder, true)) {
-                            $cronLogger->addLog("N-GENIUS: State is " . $ngeniusOrder['state']);
-                            $cronLogger->addLog(json_encode($this->getNgeniusOrder($ngeniusOrder['reference'])));
-                        } else {
-                            $cronLogger->addLog('N-GENIUS: Failed to process order');
-                        }
+                    if ($this->processOrder($apiProcessor, $ngeniusOrder, true)) {
+                        $cronLogger->addLog("N-GENIUS: State is " . $ngeniusOrder['state']);
+                        $cronLogger->addLog(json_encode($this->getNgeniusOrder($ngeniusOrder['reference'])));
                     } else {
-                        $cronLogger->addLog("N-GENIUS: Payment result not found");
+                        $cronLogger->addLog('N-GENIUS: Failed to process order');
                     }
+                } else {
+                    $cronLogger->addLog("N-GENIUS: Payment result not found");
                 }
-            catch
-                (Exception $exception) {
-                    $cronLogger->addLog("N-GENIUS: Exception " . $exception->getMessage());
-                }
+            } catch (Exception $exception) {
+                $cronLogger->addLog("N-GENIUS: Exception " . $exception->getMessage());
+            }
 
             $counter++;
         }
@@ -126,4 +123,4 @@ class NGeniusCronModuleFrontController extends NGeniusRedirectModuleFrontControl
 
         return true;
     }
-    }
+}

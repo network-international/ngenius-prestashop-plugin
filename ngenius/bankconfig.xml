@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <module>
-    <name>N-Genius Online</name>
-    <displayName>N-Genius Online</displayName>
+    <name>N-Genius Online by Network</name>
+    <displayName>N-Genius Online by Network</displayName>
     <description>Accept payments via Network International.</description>
     <orderStatus>NGENIUS</orderStatus>
     <orderStatusLabel>N-Genius Online</orderStatusLabel>

@@ -1,5 +1,19 @@
 # Changelog
 
+## [[1.2.0]](https://github.com/network-international/ngenius-prestashop-plugin/releases/tag/1.2.0)
+
+### Added
+
+- Introduced a Continue Shopping button for improved user navigation.
+
+### Changed
+
+- Updated the payment method name to “N-Genius Online by Network” for better brand consistency.
+
+### Fixed
+
+- Resolved an issue where the Refund button was incorrectly displayed after voiding a transaction.
+
 ## [[1.1.1]](https://github.com/network-international/ngenius-prestashop-plugin/releases/tag/1.1.1)
 
 ### Fixed
