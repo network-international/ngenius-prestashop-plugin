@@ -1,5 +1,18 @@
 # Changelog
 
+## [[1.3.0]](https://github.com/network-international/ngenius-prestashop-plugin/releases/tag/1.3.0)
+
+### Added
+
+- **Manual Payment Links**: Added functionality to generate and manage manual payment links for enhanced flexibility in
+  transaction processing.
+- **Updated Branding**: Replaced outdated Network logo with the latest version for consistent branding across the
+  plugin.
+
+### Fixed
+
+- Minor bug fixes and code quality improvements to enhance overall plugin stability and performance.
+
 ## [[1.2.0]](https://github.com/network-international/ngenius-prestashop-plugin/releases/tag/1.2.0)
 
 ### Added

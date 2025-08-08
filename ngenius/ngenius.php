@@ -21,7 +21,7 @@ class Ngenius extends PaymentModule
         $config              = new Config();
         $this->name          = 'ngenius';
         $this->tab           = 'payments_gateways';
-        $this->version       = '1.2.0';
+        $this->version       = '1.3.0';
         $this->author        = 'Network International';
         $this->need_instance = 1;
 
@@ -89,7 +89,8 @@ class Ngenius extends PaymentModule
     {
         $command = new Command();
         if ($params['template'] === 'order_conf') {
-            $orderId               = \Order::getOrderByCartId($params['cart']->id);
+            $order                 = Order::getByCartId($params['cart']);
+            $orderId               = $order->id;
             $orderConfirmationData = $command->getNgeniusOrderEmailContent($orderId);
             if ($orderConfirmationData) {
                 return true;
@@ -283,7 +284,8 @@ class Ngenius extends PaymentModule
         }
         $option = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $option->setCallToActionText($this->l($config->getDisplayName()))
-               ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true));
+               ->setAction($this->context->link->getModuleLink($this->name, 'validation', array(), true))
+               ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/network_logo.png'));
 
         return [
             $option
@@ -339,16 +341,22 @@ class Ngenius extends PaymentModule
             return false;
         }
 
+        $order = new Order((int)$params['id_order']);
+
+        if ($order->module !== $this->name) {
+            return false;
+        }
+
         $current_context = \Context::getContext();
         if ($current_context->controller->controller_type != 'admin') {
             return true;
         }
 
-        $order   = new \Order((int)$params['id_order']);
-        $command = new Command();
-        $config  = new Config();
-        $status  = $config->getOrderStatus();
-        if ($this->validateNgeniusOrderSatus($params)) {
+        $order  = new Order((int)$params['id_order']);
+        $config = new Config();
+        $status = $config->getOrderStatus();
+
+        if ($this->validateNgeniusOrderStatus($params)) {
             if (!empty($params['id_order'])
                 && !empty($params['newOrderStatus'])
                 && Validate::isLoadedObject($params['newOrderStatus'])
@@ -402,6 +410,10 @@ class Ngenius extends PaymentModule
 
                 return $statusFlag;
             }
+        } elseif ($params['newOrderStatus']->id == \Configuration::get(
+                $status . '_PENDING'
+            ) && $params['oldOrderStatus']->id === null) {
+            return true;
         } else {
             $this->addNgeniusFlashMessage($this->trans('Error!. Invalid Order Status.'));
             Tools::redirectAdmin(
@@ -421,8 +433,7 @@ class Ngenius extends PaymentModule
      */
     public function addNgeniusFlashMessage($message, bool $isError = false): void
     {
-        $router = $this->get('router');
-        $type   = $isError ? "error" : "success";
+        $type = $isError ? "error" : "success";
 
         $this->get('session')->getFlashBag()->add($type, $message);
     }
@@ -436,11 +447,11 @@ class Ngenius extends PaymentModule
      * @return bool;
      */
 
-    public function validateNgeniusOrderSatus(array $params): bool
+    public function validateNgeniusOrderStatus(array $params): bool
     {
         $config = new Config();
         $status = $config->getOrderStatus();
-        $order  = new \Order((int)$params['id_order']);
+        $order  = new Order((int)$params['id_order']);
         if (!empty($order->module)
             && $order->module == $this->name
             && !empty($params['newOrderStatus'])
@@ -529,7 +540,7 @@ class Ngenius extends PaymentModule
 
         $id_order = (int)$params['id_order'];
         $config   = new Config();
-        $order    = new \Order($id_order);
+        $order    = new Order($id_order);
         if ($order->module == $this->name) {
             $command      = new Command();
             $ngeniusOrder = $command->getNgeniusOrder($id_order);
@@ -612,7 +623,8 @@ class Ngenius extends PaymentModule
             }
 
             // Hide refund button
-            if ($ngeniusOrder['amount'] === $ngeniusOrder['refunded_amt'] || $ngeniusOrder['status'] === $config->getOrderStatus() . '_AUTH_REVERSED') {
+            if ($ngeniusOrder['amount'] === $ngeniusOrder['refunded_amt'] || $ngeniusOrder['status'] === $config->getOrderStatus(
+                ) . '_AUTH_REVERSED') {
                 $hideRefundBtn = true;
             }
 

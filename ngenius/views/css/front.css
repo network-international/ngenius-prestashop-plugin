@@ -21,3 +21,8 @@
     width: 14px;
     color: #777777;
 }
+
+.payment-option img {
+    height: 100px;
+    width: auto;
+}
