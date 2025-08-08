@@ -23,6 +23,7 @@
 }
 
 .payment-option img {
-    height: 100px;
     width: auto;
+    height: 18px;
+    margin: 0 0 0 0.5em;
 }
