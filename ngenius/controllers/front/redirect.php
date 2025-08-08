@@ -31,7 +31,7 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
         if (!$isValidRef || $config->isDebugCron()) {
             $log['redirected_to'] = 'module/ngenius/crondebug';
             $logger->addLog($log);
-            Tools::redirect(\Tools::getHttpHost(true) . __PS_BASE_URI__ . 'module/ngenius/crondebug');
+            Tools::redirect(Tools::getHttpHost(true) . __PS_BASE_URI__ . 'module/ngenius/crondebug');
         }
 
         $ngeniusOrder = $this->getNgeniusOrder($ref);
@@ -59,7 +59,7 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
             $status = ('STARTED' == $orderState) ? 'Cancelled' : 'Declined';
             /** @noinspection PhpUndefinedConstantInspection */
             Tools::redirect(
-                \Tools::getHttpHost(true) . __PS_BASE_URI__ . 'module/ngenius/failedorder?status=' . urlencode($status)
+                Tools::getHttpHost(true) . __PS_BASE_URI__ . 'module/ngenius/failedorder?status=' . urlencode($status)
             );
         }
 
@@ -88,7 +88,7 @@ class NGeniusRedirectModuleFrontController extends ModuleFrontController
         $redirectLink         = $this->module->getOrderConfUrl($order);
         $log['redirected_to'] = $redirectLink;
         $logger->addLog($log);
-        Tools::redirectLink($redirectLink);
+        Tools::redirect($redirectLink);
     }
 
     /**

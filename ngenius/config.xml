@@ -2,7 +2,7 @@
 <module>
     <name>ngenius</name>
     <displayName><![CDATA[N-Genius Online by Network]]></displayName>
-    <version><![CDATA[1.2.0]]></version>
+    <version><![CDATA[1.3.0]]></version>
     <description><![CDATA[Accept payments via Network International.]]></description>
     <author><![CDATA[Network International]]></author>
     <tab><![CDATA[payments_gateways]]></tab>

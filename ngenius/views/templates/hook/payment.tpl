@@ -9,7 +9,7 @@
 				</a>
 			{else}
 				<a href="{$link->getModuleLink('ngenius', 'redirect', array(), true)|escape:'htmlall':'UTF-8'}" title="{l s='Pay with my payment module' mod='ngenius'}">
-					<img src="{$module_dir|escape:'htmlall':'UTF-8'}/logo.png" alt="{l s='Pay with my payment module' mod='ngenius'}" width="32" height="32" />
+					<img src="{$module_dir|escape:'htmlall':'UTF-8'}/views/img/network_logo.png" alt="{l s='Pay with my payment module' mod='ngenius'}" width="100px" height="auto" />
 					{l s='Pay with my payment module' mod='ngenius'}
 				</a>
 			{/if}
